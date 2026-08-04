@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -36,7 +36,7 @@ jobs:
         run: git checkout "$GITHUB_BASE_REF"
       - name: Capture target dependency findings
         continue-on-error: true
-        uses: google/osv-scanner-action/osv-scanner-action@8dc09193bb540e09b23da07ad7e30bd33bf87018 # v2.3.8
+        uses: google/osv-scanner-action/osv-scanner-action@9fd1bcce27f67e3bd819a0a7620e332803dc43bc # v2.3.8
         with:
           scan-args: |-
             --format=json
@@ -48,7 +48,7 @@ jobs:
         run: git checkout --force "$GITHUB_SHA"
       - name: Capture proposed dependency findings
         continue-on-error: true
-        uses: google/osv-scanner-action/osv-scanner-action@8dc09193bb540e09b23da07ad7e30bd33bf87018 # v2.3.8
+        uses: google/osv-scanner-action/osv-scanner-action@9fd1bcce27f67e3bd819a0a7620e332803dc43bc # v2.3.8
         with:
           scan-args: |-
             --format=json
@@ -57,7 +57,7 @@ jobs:
             ./
 
       - name: Block newly introduced vulnerabilities
-        uses: google/osv-scanner-action/osv-reporter-action@8dc09193bb540e09b23da07ad7e30bd33bf87018 # v2.3.8
+        uses: google/osv-scanner-action/osv-reporter-action@9fd1bcce27f67e3bd819a0a7620e332803dc43bc # v2.3.8
         with:
           scan-args: |-
             --output-files=results.sarif
@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload scan evidence
         if: always()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: osv-pr-results
           path: |
@@ -79,7 +79,7 @@ jobs:
 
       - name: Publish results to code scanning
         if: always() && hashFiles('results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@cdefb33c0f6224e58673d9004f47f7cb3e328b89 # v4.31.10
+        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           sarif_file: results.sarif
 
