@@ -1,19 +1,25 @@
 services:
   filebrowser:
     container_name: filebrowser
-    image: filebrowser/filebrowser:latest
+    image: ${FILEBROWSER_IMAGE:-ghcr.io/cryptnetworks/filebrowser:latest}
+    restart: unless-stopped
     networks:
       - filebrowser
     ports:
-      - 8000:80
+      - "8000:80"
     volumes:
-      - filebrowser:/flux/vault
+      - filebrowser_data:/srv
+      - filebrowser_database:/database
+      - filebrowser_config:/config
     environment:
-      - FB_REDIS_CACHE_URL=redis://default:filebrowser@redis:6379 # Use rediss:// for ssl
+      FB_REDIS_CACHE_URL: redis://default:filebrowser@redis:6379 # Use rediss:// for TLS.
+    depends_on:
+      - redis
 
   redis:
     container_name: redis
     image: redis:latest
+    restart: unless-stopped
     networks:
       - filebrowser
     command:
@@ -29,4 +35,6 @@ networks:
   filebrowser:
 
 volumes:
-  filebrowser:
+  filebrowser_data:
+  filebrowser_database:
+  filebrowser_config:

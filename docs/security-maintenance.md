@@ -51,6 +51,8 @@ DAST active attacks must target only ephemeral CI instances. Authenticated conte
 
 Security tools are part of the attack surface. GitHub Actions policy requires full-length commit-SHA pins. Repository workflows also pin the ZAP container by digest, grant minimum token permissions, set timeouts, cancel stale runs, use lockfile caches, and retain security evidence for review. Dependabot owns reviewed updates to action revisions.
 
+The GHCR publishing workflow builds the standard and S6 images for supported platforms, records BuildKit SBOM and provenance attestations, and emits commit-addressable `sha-*` tags. Treat `latest` and `s6` as rolling development channels; production deployments should use a release tag and pin its registry digest.
+
 A March 2026 compromise affected Trivy releases and action tags. Do not add Trivy through a mutable tag. Before adopting it or an alternative, verify the release signature, immutable commit/image digest, incident-safe version, and the permissions/network access it receives.
 
 ## Finding triage

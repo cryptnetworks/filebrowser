@@ -31,6 +31,16 @@ Until the linked fixes ship:
 
 Do not interpret the existence of scanning workflows as proof that the current code is safe. CodeQL, dependency, OSV, and DAST results are inputs to review; the eleven inherited advisories with no patched upstream version remain tracked work.
 
+## Container images
+
+Multi-platform container images are published at [`ghcr.io/cryptnetworks/filebrowser`](https://github.com/cryptnetworks/filebrowser/pkgs/container/filebrowser). Use `latest` for the standard image or `s6` for the LinuxServer/S6 variant. For production, use a versioned tag and pin the GHCR digest.
+
+```sh
+docker compose up -d
+```
+
+See the [installation guide](docs/installation.md#docker) for image tags, supported platforms, volumes, and standalone `docker run` examples.
+
 ## Documentation
 
 Installation, configuration, and build documentation lives in [`docs`](docs). Fork-specific security operations are documented in [`docs/security-maintenance.md`](docs/security-maintenance.md).

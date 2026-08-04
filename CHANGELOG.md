@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## Unreleased
 
+### Features
+
+- Publish multi-platform standard and S6 container images to GHCR with SBOM and
+  provenance attestations, and provide a persistent-volume Compose deployment.
+
 ### Security
 
 - Restrict interactive commands and hooks to absolute, administrator-configured

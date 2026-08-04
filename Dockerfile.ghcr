@@ -1,0 +1,98 @@
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
+
+WORKDIR /src/frontend
+
+RUN npm install --global pnpm@10.33.4
+
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY frontend/ ./
+RUN pnpm run build
+
+
+FROM --platform=$BUILDPLATFORM golang:1.25.12-alpine AS backend-builder
+
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT
+ARG VERSION=dev
+ARG COMMIT_SHA=unknown
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . ./
+COPY --from=frontend-builder /src/frontend/dist ./frontend/dist
+
+RUN set -eux; \
+    export CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH"; \
+    if [ "$TARGETARCH" = "arm" ]; then export GOARM="${TARGETVARIANT#v}"; fi; \
+    version="${VERSION#v}"; \
+    go build -trimpath \
+      -ldflags="-s -w -X github.com/filebrowser/filebrowser/v2/version.Version=$version -X github.com/filebrowser/filebrowser/v2/version.CommitSHA=$COMMIT_SHA" \
+      -o /out/filebrowser .
+
+
+FROM alpine:3.24 AS runtime-files
+
+RUN apk update && \
+    apk --no-cache add ca-certificates mailcap tini-static && \
+    wget -O /JSON.sh https://raw.githubusercontent.com/dominictarr/JSON.sh/0d5e5c77365f63809bf6e77ef44a1f34b0e05840/JSON.sh
+
+
+FROM busybox:1.38.0-musl AS standard
+
+ENV UID=1000
+ENV GID=1000
+
+RUN addgroup -g "$GID" user && \
+    adduser -D -u "$UID" -G user user
+
+COPY --chown=user:user --from=backend-builder /out/filebrowser /bin/filebrowser
+COPY --chown=user:user docker/common/ /
+COPY --chown=user:user docker/alpine/ /
+COPY --chown=user:user --from=runtime-files /sbin/tini-static /bin/tini
+COPY --from=runtime-files /JSON.sh /JSON.sh
+COPY --from=runtime-files /etc/ca-certificates.conf /etc/ca-certificates.conf
+COPY --from=runtime-files /etc/ca-certificates /etc/ca-certificates
+COPY --from=runtime-files /etc/mime.types /etc/mime.types
+COPY --from=runtime-files /etc/ssl /etc/ssl
+
+RUN mkdir -p /config /database /srv && \
+    chown -R user:user /config /database /srv && \
+    chmod +x /healthcheck.sh
+
+HEALTHCHECK --start-period=2s --interval=5s --timeout=3s CMD /healthcheck.sh
+
+USER user
+
+VOLUME /srv /config /database
+
+EXPOSE 80
+
+ENTRYPOINT ["tini", "--", "/init.sh"]
+
+
+FROM ghcr.io/linuxserver/baseimage-alpine:3.24 AS s6
+
+RUN apk update && \
+    apk --no-cache add ca-certificates mailcap jq libcap
+
+RUN mkdir -p /config /database /srv && \
+    chown -R abc:abc /config /database /srv
+
+COPY --from=backend-builder /out/filebrowser /bin/filebrowser
+COPY docker/common/ /
+COPY docker/s6/ /
+
+RUN chown -R abc:abc /bin/filebrowser /defaults /healthcheck.sh && \
+    setcap 'cap_net_bind_service=+ep' /bin/filebrowser
+
+HEALTHCHECK --start-period=2s --interval=5s --timeout=3s CMD /healthcheck.sh
+
+VOLUME /srv /config /database
+
+EXPOSE 80

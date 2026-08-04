@@ -32,7 +32,9 @@ File Browser is now up and running. Read the ["First Boot"](#first-boot) section
 
 ## Docker
 
-File Browser is available as two different Docker images, which can be found on [Docker Hub](https://hub.docker.com/r/filebrowser/filebrowser): a [bare Alpine image](#bare-alpine-image) and an [S6 Overlay image](#s6-overlay-image).
+This fork publishes multi-platform images to the [GitHub Container Registry](https://github.com/cryptnetworks/filebrowser/pkgs/container/filebrowser): a [bare Alpine image](#bare-alpine-image) and an [S6 Overlay image](#s6-overlay-image). Images are available for AMD64 and ARM64; the bare image also supports ARMv7.
+
+The `latest` and `s6` tags track the current `master` branch. Version tags such as `v2.64.0` and `v2.64.0-s6` are published for releases. Production deployments should select a version tag and preferably pin the image digest shown by GHCR instead of following a rolling tag.
 
 ### Bare Alpine Image
 
@@ -42,7 +44,7 @@ docker run \
     -v filebrowser_database:/database \
     -v filebrowser_config:/config \
     -p 8080:80 \
-    filebrowser/filebrowser
+    ghcr.io/cryptnetworks/filebrowser:latest
 ```
 
 Where `filebrowser_data`, `filebrowser_database` and `filebrowser_config` are Docker [volumes](https://docs.docker.com/engine/storage/volumes/), where the data, database and configuration will be stored, respectively. The default configuration and database will be automatically initialized.
@@ -67,7 +69,7 @@ docker run \
     -e PUID=$(id -u) \
     -e PGID=$(id -g) \
     -p 8080:80 \
-    filebrowser/filebrowser:s6
+    ghcr.io/cryptnetworks/filebrowser:s6
 ```
 
 Where:
@@ -79,6 +81,20 @@ Where:
 Both `settings.json` and `filebrowser.db` will automatically be initialized if they don't exist.
 
 File Browser is now up and running. Read the ["First Boot"](#first-boot) section for more information.
+
+### Docker Compose
+
+The repository includes a [`compose.yaml`](../compose.yaml) example backed by persistent volumes for files, configuration, and the database:
+
+```sh
+docker compose up -d
+```
+
+Override `FILEBROWSER_IMAGE` to deploy a version or immutable digest without editing the compose file:
+
+```sh
+FILEBROWSER_IMAGE=ghcr.io/cryptnetworks/filebrowser@sha256:<digest> docker compose up -d
+```
 
 ## First Boot
 

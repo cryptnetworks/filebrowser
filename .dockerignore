@@ -1,7 +1,10 @@
+.git
+.github
 .venv
 dist
 .idea
 frontend/node_modules
 frontend/dist
+filebrowser
 filebrowser.db
 docs/index.md
