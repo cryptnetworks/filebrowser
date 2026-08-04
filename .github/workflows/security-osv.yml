@@ -23,11 +23,65 @@ concurrency:
 jobs:
   scan-pr:
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.3.8
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Scan target branch
+        continue-on-error: true
+        run: git checkout "$GITHUB_BASE_REF"
+      - name: Capture target dependency findings
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@8dc09193bb540e09b23da07ad7e30bd33bf87018 # v2.3.8
+        with:
+          scan-args: |-
+            --format=json
+            --output-file=old-results.json
+            --recursive
+            ./
+
+      - name: Restore proposed change
+        run: git checkout --force "$GITHUB_SHA"
+      - name: Capture proposed dependency findings
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@8dc09193bb540e09b23da07ad7e30bd33bf87018 # v2.3.8
+        with:
+          scan-args: |-
+            --format=json
+            --output-file=new-results.json
+            --recursive
+            ./
+
+      - name: Block newly introduced vulnerabilities
+        uses: google/osv-scanner-action/osv-reporter-action@8dc09193bb540e09b23da07ad7e30bd33bf87018 # v2.3.8
+        with:
+          scan-args: |-
+            --output-files=results.sarif
+            --old=old-results.json
+            --new=new-results.json
+            --gh-annotations=true
+            --fail-on-vuln=true
+
+      - name: Upload scan evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: osv-pr-results
+          path: |
+            results.sarif
+            old-results.json
+            new-results.json
+          retention-days: 14
+
+      - name: Publish results to code scanning
+        if: always() && hashFiles('results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@cdefb33c0f6224e58673d9004f47f7cb3e328b89 # v4.31.10
+        with:
+          sarif_file: results.sarif
 
   scan-full:
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
