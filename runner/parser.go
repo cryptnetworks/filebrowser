@@ -2,31 +2,39 @@ package runner
 
 import (
 	"errors"
+	"path/filepath"
 	"slices"
 
 	"github.com/filebrowser/filebrowser/v2/settings"
 )
 
 var ErrCommandNotAllowed = errors.New("command not allowed")
+var ErrCommandPathNotAbsolute = errors.New("command executable must use an absolute path")
 
-// ParseCommand parses the command taking in account if the current
-// instance uses a shell to run the commands or just calls the binary
-// directly.
-func ParseCommand(s *settings.Settings, raw string) (command []string, name string, err error) {
+// ParseDirectCommand parses an administrator-configured command into an
+// explicit argument vector. Requiring an absolute executable prevents the
+// process environment (especially PATH) from selecting a different binary.
+func ParseDirectCommand(raw string) ([]string, error) {
 	name, args, err := SplitCommandAndArgs(raw)
 	if err != nil {
-		return
+		return nil, err
+	}
+	if !filepath.IsAbs(name) {
+		return nil, ErrCommandPathNotAbsolute
 	}
 
-	if len(s.Shell) == 0 || s.Shell[0] == "" {
-		command = append(command, name)
-		command = append(command, args...)
-	} else {
-		command = append(command, s.Shell...)
-		command = append(command, raw)
+	return append([]string{name}, args...), nil
+}
+
+// ParseCommand parses an event hook as a direct process invocation. The
+// legacy shell setting is deliberately ignored.
+func ParseCommand(_ *settings.Settings, raw string) (command []string, name string, err error) {
+	command, err = ParseDirectCommand(raw)
+	if err != nil {
+		return nil, "", err
 	}
 
-	return command, name, nil
+	return command, command[0], nil
 }
 
 // ParseAllowedCommand parses an interactive command and returns the canonical
@@ -34,18 +42,16 @@ func ParseCommand(s *settings.Settings, raw string) (command []string, name stri
 // match an allowlist entry exactly, including its arguments, and is never
 // passed through the configured shell.
 func ParseAllowedCommand(raw string, allowlist []string) ([]string, error) {
-	name, args, err := SplitCommandAndArgs(raw)
+	requested, err := ParseDirectCommand(raw)
 	if err != nil {
-		return nil, err
+		return nil, ErrCommandNotAllowed
 	}
-	requested := append([]string{name}, args...)
 
 	for _, allowed := range allowlist {
-		allowedName, allowedArgs, err := SplitCommandAndArgs(allowed)
+		candidate, err := ParseDirectCommand(allowed)
 		if err != nil {
 			continue
 		}
-		candidate := append([]string{allowedName}, allowedArgs...)
 		if slices.Equal(requested, candidate) {
 			return candidate, nil
 		}

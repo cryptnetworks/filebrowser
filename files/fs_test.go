@@ -94,6 +94,59 @@ func TestScopedFsRejectsLexicalSiblingEscape(t *testing.T) {
 	}
 }
 
+func TestScopedFsTraversalCannotReachSibling(t *testing.T) {
+	base := t.TempDir()
+	scope := filepath.Join(base, "scope")
+	outside := filepath.Join(base, "outside")
+	for _, dir := range []string{scope, outside} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	secret := filepath.Join(outside, "secret.txt")
+	if err := os.WriteFile(secret, []byte("outside"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	inside := filepath.Join(scope, "inside.txt")
+	if err := os.WriteFile(inside, []byte("inside"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	fs := NewScopedFs(afero.NewOsFs(), scope)
+	tests := []struct {
+		name string
+		run  func() error
+	}{
+		{name: "parent read", run: func() error { _, err := fs.Open("../outside/secret.txt"); return err }},
+		{name: "repeated parent read", run: func() error { _, err := fs.Open("../../outside/secret.txt"); return err }},
+		{name: "absolute host path read", run: func() error { _, err := fs.Open(secret); return err }},
+		{name: "encoded parent read", run: func() error { _, err := fs.Open("%2e%2e/outside/secret.txt"); return err }},
+		{name: "double encoded parent read", run: func() error { _, err := fs.Open("%252e%252e/outside/secret.txt"); return err }},
+		{name: "parent create", run: func() error { _, err := fs.Create("../outside/new.txt"); return err }},
+		{name: "parent mkdir", run: func() error { return fs.MkdirAll("../outside/newdir", 0o755) }},
+		{name: "parent rename", run: func() error { return fs.Rename("/inside.txt", "../outside/moved.txt") }},
+		{name: "parent delete", run: func() error { return fs.RemoveAll("../outside/secret.txt") }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_ = tt.run()
+			content, err := os.ReadFile(secret)
+			if err != nil || string(content) != "outside" {
+				t.Fatalf("out-of-scope secret changed: content=%q err=%v", content, err)
+			}
+			for _, name := range []string{"new.txt", "newdir", "moved.txt"} {
+				if _, err := os.Stat(filepath.Join(outside, name)); !os.IsNotExist(err) {
+					t.Fatalf("out-of-scope target %q was created: %v", name, err)
+				}
+			}
+			if content, err := os.ReadFile(inside); err != nil || string(content) != "inside" {
+				t.Fatalf("in-scope source changed: content=%q err=%v", content, err)
+			}
+		})
+	}
+}
+
 // TestBasePath verifies BasePath extracts the underlying *afero.BasePathFs from
 // either filesystem NewFs may return, so User.FullPath keeps working.
 func TestBasePath(t *testing.T) {

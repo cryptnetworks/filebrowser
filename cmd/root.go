@@ -507,13 +507,13 @@ func quickSetup(v *viper.Viper, s *storage.Storage) error {
 			return err
 		}
 
-		log.Printf("User '%s' initialized with randomly generated password: %s\n", username, pwd)
+		fmt.Fprintf(rootCmd.OutOrStdout(), "Generated initial password: %s\n", pwd)
 		password, err = users.ValidateAndHashPwd(pwd, set.MinimumPasswordLength)
 		if err != nil {
 			return err
 		}
 	} else {
-		log.Printf("User '%s' initialize wth user-provided password\n", username)
+		log.Print("Initialized the first user with a supplied password")
 	}
 
 	if username == "" || password == "" {

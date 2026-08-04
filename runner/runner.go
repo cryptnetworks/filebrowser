@@ -78,15 +78,13 @@ func (r *Runner) exec(raw, evt, path, dst string, user *users.User) error {
 		case "DESTINATION":
 			return dst
 		default:
-			return os.Getenv(key)
+			return ""
 		}
 	}
-	// When a shell is configured, let it expand the environment variables.
-	// Interpolating attacker-controlled file or user names into the shell text
-	// would cause their metacharacters to be parsed as commands. For direct
-	// execution, expansion is safe because each value remains a single argv.
-	usesShell := len(r.Shell) > 0 && r.Shell[0] != ""
-	expandCommandArgs(command, usesShell, envMapping)
+	// Expand only documented hook values, with every expansion retained as one
+	// argv element. The configured shell is intentionally ignored: hook commands
+	// are always direct process executions.
+	expandCommandArgs(command, envMapping)
 
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("FILE=%s", path))
@@ -100,27 +98,23 @@ func (r *Runner) exec(raw, evt, path, dst string, user *users.User) error {
 	cmd.Stderr = os.Stderr
 
 	if !blocking {
-		log.Printf("[INFO] Nonblocking Command: \"%s\"", strings.Join(command, " "))
+		log.Printf("[INFO] Nonblocking hook %q started", evt)
 		defer func() {
 			go func() {
 				err := cmd.Wait()
 				if err != nil {
-					log.Printf("[INFO] Nonblocking Command \"%s\" failed: %s", strings.Join(command, " "), err)
+					log.Printf("[INFO] Nonblocking hook %q failed: %s", evt, err)
 				}
 			}()
 		}()
 		return cmd.Start()
 	}
 
-	log.Printf("[INFO] Blocking Command: \"%s\"", strings.Join(command, " "))
+	log.Printf("[INFO] Blocking hook %q started", evt)
 	return cmd.Run()
 }
 
-func expandCommandArgs(command []string, usesShell bool, mapping func(string) string) {
-	if usesShell {
-		return
-	}
-
+func expandCommandArgs(command []string, mapping func(string) string) {
 	for i, arg := range command {
 		if i == 0 {
 			continue

@@ -12,11 +12,11 @@ The default-branch scan currently contains 40 open alerts:
 
 | Priority | Alerts | Rule | Remediation status |
 | --- | ---: | --- | --- |
-| Critical | 1 | `go/command-injection` | Fixed in PR #18; awaiting CodeQL verification |
-| High | 30 | `go/path-injection` | Confinement tests added; verify each result after merge |
-| High | 2 | `go/clear-text-logging` | Fixed in PR #18; awaiting CodeQL verification |
-| High | 1 | `go/incorrect-integer-conversion` | Fixed in PR #18; awaiting CodeQL verification |
-| Medium | 6 | `actions/missing-workflow-permissions` | Fixed in PR #18; awaiting CodeQL verification |
+| Critical | 1 | `go/command-injection` | PR analysis has zero CodeQL findings; default branch awaits merge and rescan |
+| High | 30 | `go/path-injection` | PR analysis has zero CodeQL findings; confinement evidence expanded |
+| High | 2 | `go/clear-text-logging` | PR analysis has zero CodeQL findings; sensitive command arguments are not logged |
+| High | 1 | `go/incorrect-integer-conversion` | PR analysis has zero CodeQL findings; boundary cases covered |
+| Medium | 6 | `actions/missing-workflow-permissions` | PR analysis has zero CodeQL findings; workflow permissions verified |
 
 CodeQL records alerts against the default branch. An alert is not considered
 closed merely because a pull request contains a proposed fix.
@@ -25,10 +25,11 @@ closed merely because a pull request contains a proposed fix.
 
 ### 1. Land the immediate CodeQL fixes
 
-- Require interactive commands to match an administrator-approved argument
-  vector exactly; never evaluate the request through a shell.
-- Keep attacker-controlled hook values out of shell command text and pass them
-  through the process environment or direct argument vectors.
+- Require all command features to use absolute administrator-approved
+  executables and explicit argument vectors; never evaluate requests or hook
+  configuration through a shell.
+- Keep attacker-controlled hook values in single arguments or documented
+  environment entries and reject `PATH`-resolved executables.
 - Redact authentication secrets from configuration output and remove invalid
   usernames from logs.
 - Reject overflowing user IDs instead of accepting a truncated conversion.
@@ -96,3 +97,19 @@ artifact is reproducible from the tagged commit.
   it.
 - Re-scan the default branch after each security merge and update this document
   when counts or priorities change.
+
+## Pre-merge residual risk
+
+- Command execution, event hooks, and hook authentication remain optional
+  privileged features. They are disabled by default and require trusted
+  executables plus an external operating-system sandbox when enabled.
+- The scoped filesystem performs a resolved-target check immediately before
+  each operation. A process that can concurrently replace path components may
+  still present a time-of-check/time-of-use race; deployments must prevent
+  untrusted local processes from mutating the served tree outside the API.
+- `github.com/disintegration/imaging` has an unfixed low-severity crafted-TIFF
+  crash advisory. Image processing can be disabled as a deployment mitigation.
+- `golang.org/x/crypto/openpgp` is reported as unmaintained, but this application
+  reaches `x/crypto` through `bcrypt`, not `openpgp`. The module-level scanner
+  result remains documented until the dependency no longer contains that
+  package or the scanner supports package reachability.

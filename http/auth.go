@@ -230,7 +230,7 @@ var signupHandler = func(w http.ResponseWriter, r *http.Request, d *data) (int, 
 		return http.StatusInternalServerError, err
 	}
 
-	log.Printf("new user: %s, home dir: [%s].", user.Username, user.Scope)
+	log.Print("signup provisioned a user")
 
 	err = d.store.Users.SaveProvisioned(user, derivedScope)
 	if errors.Is(err, fberrors.ErrExist) {

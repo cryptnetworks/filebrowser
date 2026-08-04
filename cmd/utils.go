@@ -200,11 +200,14 @@ func withStore(fn func(cmd *cobra.Command, args []string, store *store) error, o
 }
 
 func marshal(filename string, data interface{}) error {
-	fd, err := os.Create(filename)
+	fd, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
 	defer fd.Close()
+	if err := fd.Chmod(0o600); err != nil {
+		return err
+	}
 
 	switch ext := filepath.Ext(filename); ext {
 	case ".json":

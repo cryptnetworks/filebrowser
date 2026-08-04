@@ -264,67 +264,12 @@ func printSettings(ser *settings.Server, set *settings.Settings, auther auth.Aut
 
 	w.Flush()
 
-	b, err := json.MarshalIndent(authConfigForDisplay(auther), "", "  ")
+	b, err := json.MarshalIndent(auth.ConfigForDisplay(auther), "", "  ")
 	if err != nil {
 		return err
 	}
 	fmt.Printf("\nAuther configuration (raw):\n\n%s\n\n", string(b))
 	return nil
-}
-
-const redactedConfigValue = "[REDACTED]"
-
-func authConfigForDisplay(auther auth.Auther) any {
-	switch value := auther.(type) {
-	case auth.JSONAuth:
-		return jsonAuthConfigForDisplay(value)
-	case *auth.JSONAuth:
-		return jsonAuthConfigForDisplay(*value)
-	case auth.ProxyAuth:
-		return struct {
-			Header string `json:"header"`
-		}{Header: value.Header}
-	case *auth.ProxyAuth:
-		return struct {
-			Header string `json:"header"`
-		}{Header: value.Header}
-	case *auth.HookAuth:
-		return struct {
-			Command string `json:"command"`
-		}{Command: value.Command}
-	case auth.NoAuth, *auth.NoAuth:
-		return struct{}{}
-	default:
-		return struct {
-			Type string `json:"type"`
-		}{Type: fmt.Sprintf("%T", auther)}
-	}
-}
-
-func jsonAuthConfigForDisplay(value auth.JSONAuth) any {
-	if value.ReCaptcha == nil {
-		return struct {
-			ReCaptcha any `json:"recaptcha"`
-		}{ReCaptcha: nil}
-	}
-
-	return struct {
-		ReCaptcha struct {
-			Host   string `json:"host"`
-			Key    string `json:"key"`
-			Secret string `json:"secret"`
-		} `json:"recaptcha"`
-	}{
-		ReCaptcha: struct {
-			Host   string `json:"host"`
-			Key    string `json:"key"`
-			Secret string `json:"secret"`
-		}{
-			Host:   value.ReCaptcha.Host,
-			Key:    value.ReCaptcha.Key,
-			Secret: redactedConfigValue,
-		},
-	}
 }
 
 func getSettings(flags *pflag.FlagSet, set *settings.Settings, ser *settings.Server, auther auth.Auther, all bool) (auth.Auther, error) {
