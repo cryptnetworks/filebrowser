@@ -6,6 +6,9 @@ This fork is undergoing security remediation. No patched release is available
 yet; fixes are developed on protected branches and will be documented when a
 release is published.
 
+The current audit baseline and closure criteria are tracked in the
+[security remediation plan](docs/security-remediation-plan.md).
+
 | Version | Supported |
 | ------- | --------- |
 | Unreleased fork `master` | Security development |
