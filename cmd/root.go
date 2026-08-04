@@ -156,9 +156,9 @@ The precedence of the configuration values are as follows:
 Also, if the database path doesn't exist, File Browser will enter into
 the quick setup mode and a new database will be bootstrapped and a new
 user created with the credentials from options "username" and "password".`,
-	RunE: withViperAndStore(func(_ *cobra.Command, _ []string, v *viper.Viper, st *store) error {
+	RunE: withViperAndStore(func(cmd *cobra.Command, _ []string, v *viper.Viper, st *store) error {
 		if !st.databaseExisted {
-			err := quickSetup(v, st.Storage)
+			err := quickSetup(v, st.Storage, cmd.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -420,7 +420,7 @@ func setupLog(logMethod string) {
 	}
 }
 
-func quickSetup(v *viper.Viper, s *storage.Storage) error {
+func quickSetup(v *viper.Viper, s *storage.Storage, output io.Writer) error {
 	log.Println("Performing quick setup")
 
 	set := &settings.Settings{
@@ -507,7 +507,7 @@ func quickSetup(v *viper.Viper, s *storage.Storage) error {
 			return err
 		}
 
-		fmt.Fprintf(rootCmd.OutOrStdout(), "Generated initial password: %s\n", pwd)
+		fmt.Fprintf(output, "Generated initial password: %s\n", pwd)
 		password, err = users.ValidateAndHashPwd(pwd, set.MinimumPasswordLength)
 		if err != nil {
 			return err
