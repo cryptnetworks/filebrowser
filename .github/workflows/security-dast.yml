@@ -1,0 +1,97 @@
+name: Security - DAST Baseline
+
+on:
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "auth/**"
+      - "http/**"
+      - "frontend/src/**"
+      - "settings/**"
+      - "storage/**"
+      - "users/**"
+      - "go.mod"
+      - "go.sum"
+      - "frontend/package.json"
+      - "frontend/pnpm-lock.yaml"
+      - ".github/workflows/security-dast.yml"
+  schedule:
+    - cron: "43 5 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-dast-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zap-baseline:
+    name: OWASP ZAP passive baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24.x"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Build backend
+        run: go build -o filebrowser .
+
+      - name: Start isolated test instance
+        run: |
+          mkdir -p "${RUNNER_TEMP}/filebrowser-root" "${GITHUB_WORKSPACE}/zap-reports"
+          nohup ./filebrowser             --noauth             --disableExec             --address 0.0.0.0             --port 8080             --root "${RUNNER_TEMP}/filebrowser-root"             --database "${RUNNER_TEMP}/filebrowser-dast.db"             > "${RUNNER_TEMP}/filebrowser-dast.log" 2>&1 &
+          echo $! > "${RUNNER_TEMP}/filebrowser-dast.pid"
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8080/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          sed -E 's/(password: )[[:graph:]]+/\1[REDACTED]/g' "${RUNNER_TEMP}/filebrowser-dast.log"
+          exit 1
+
+      - name: Run OWASP ZAP baseline
+        run: |
+          docker run --rm --network host             -v "${GITHUB_WORKSPACE}/zap-reports:/zap/wrk:rw"             ghcr.io/zaproxy/zaproxy:stable             zap-baseline.py             -t http://127.0.0.1:8080             -m 2             -I             -J zap-report.json             -r zap-report.html             -w zap-report.md
+
+      - name: Upload DAST reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-${{ github.run_id }}
+          path: zap-reports/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Stop test instance
+        if: always()
+        run: |
+          if [[ -f "${RUNNER_TEMP}/filebrowser-dast.pid" ]]; then
+            kill "$(cat "${RUNNER_TEMP}/filebrowser-dast.pid")" || true
+          fi
