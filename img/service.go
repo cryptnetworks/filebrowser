@@ -22,6 +22,10 @@ var ErrUnsupportedFormat = errors.New("unsupported image format")
 // ErrImageTooLarge means the image is too large to create a thumbnail.
 var ErrImageTooLarge = errors.New("image too large for thumbnail generation")
 
+// ErrInvalidImage means decoded image data is internally inconsistent and
+// cannot be passed safely to the resizing library.
+var ErrInvalidImage = errors.New("invalid image data")
+
 // Maximum dimensions for thumbnail generation to prevent server crashes
 const (
 	MaxImageWidth  = 10000
@@ -175,7 +179,7 @@ func (s *Service) Resize(ctx context.Context, in io.Reader, width, height int, o
 		}
 	}
 
-	img, err := imaging.Decode(wrappedReader, imaging.AutoOrientation(true))
+	img, err := decodeForResize(wrappedReader, format)
 	if err != nil {
 		return err
 	}
@@ -190,6 +194,44 @@ func (s *Service) Resize(ctx context.Context, in io.Reader, width, height int, o
 	}
 
 	return imaging.Encode(out, img, config.format.toImaging())
+}
+
+func decodeForResize(in io.Reader, format Format) (image.Image, error) {
+	var (
+		decoded image.Image
+		err     error
+	)
+
+	// The TIFF decoder can return a paletted image whose pixel indexes exceed
+	// the palette length. Imaging's scanner assumes those indexes are valid and
+	// otherwise panics in a worker goroutine. Decode TIFF without invoking an
+	// imaging transform first, then reject inconsistent palette data.
+	if format == FormatTiff {
+		decoded, _, err = image.Decode(in)
+	} else {
+		decoded, err = imaging.Decode(in, imaging.AutoOrientation(true))
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := validatePalettedImage(decoded); err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
+func validatePalettedImage(decoded image.Image) error {
+	paletted, ok := decoded.(*image.Paletted)
+	if !ok {
+		return nil
+	}
+	paletteSize := len(paletted.Palette)
+	for _, index := range paletted.Pix {
+		if int(index) >= paletteSize {
+			return fmt.Errorf("palette index %d exceeds palette size %d: %w", index, paletteSize, ErrInvalidImage)
+		}
+	}
+	return nil
 }
 
 func (s *Service) detectFormat(in io.Reader) (Format, io.Reader, error) {

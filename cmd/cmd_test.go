@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -87,6 +88,40 @@ func TestAuthConfigForDisplayRedactsSecrets(t *testing.T) {
 	}
 	if !strings.Contains(output, "public-site-key") {
 		t.Fatalf("non-secret site key unexpectedly omitted: %s", output)
+	}
+}
+
+func TestPrintSettingsOmitsAuthenticationBackendDetails(t *testing.T) {
+	readEnd, writeEnd, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalStdout := os.Stdout
+	os.Stdout = writeEnd
+	defer func() {
+		os.Stdout = originalStdout
+		_ = readEnd.Close()
+		_ = writeEnd.Close()
+	}()
+
+	secretCommand := "/usr/local/bin/auth-hook --token private-token"
+	if err := printSettings(&settings.Server{}, &settings.Settings{}, &auth.HookAuth{Command: secretCommand}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeEnd.Close(); err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = originalStdout
+
+	output, err := io.ReadAll(readEnd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(output), secretCommand) || strings.Contains(string(output), "private-token") {
+		t.Fatalf("authentication backend details leaked in output: %s", output)
+	}
+	if !strings.Contains(string(output), auth.RedactedConfigValue) {
+		t.Fatalf("redaction marker missing from output: %s", output)
 	}
 }
 

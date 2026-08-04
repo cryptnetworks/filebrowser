@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -66,5 +67,28 @@ func TestMakeUserDirConfinesExplicitTraversalToServerRoot(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(base, "outside")); !os.IsNotExist(err) {
 		t.Fatalf("traversal created a directory outside server root: %v", err)
+	}
+}
+
+func TestMakeUserDirRejectsEscapingSymlink(t *testing.T) {
+	base := t.TempDir()
+	serverRoot := filepath.Join(base, "server")
+	outside := filepath.Join(base, "outside")
+	if err := os.MkdirAll(serverRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(serverRoot, "escape")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	s := &Settings{}
+	if _, err := s.MakeUserDir("alice", "/escape/alice", serverRoot); !errors.Is(err, os.ErrPermission) {
+		t.Fatalf("escaping symlink returned %v, want permission error", err)
+	}
+	if _, err := os.Stat(filepath.Join(outside, "alice")); !os.IsNotExist(err) {
+		t.Fatalf("home directory was created outside server root: %v", err)
 	}
 }

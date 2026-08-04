@@ -18,6 +18,9 @@ All notable changes to this project will be documented in this file. See [commit
   actions and scanner images to immutable revisions.
 - Update vulnerable frontend build dependencies and require a patched Go 1.25
   runtime line.
+- Reject user-home creation through external symlinks, validate decoded TIFF
+  palette indexes before resizing, and omit authentication backend details from
+  console configuration output.
 
 ## [2.63.23](https://github.com/filebrowser/filebrowser/compare/v2.63.22...v2.63.23) (2026-07-27)
 ## [2.63.22](https://github.com/filebrowser/filebrowser/compare/v2.63.21...v2.63.22) (2026-07-27)

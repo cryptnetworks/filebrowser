@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/filebrowser/filebrowser/v2/files"
 	"github.com/spf13/afero"
 
 	"github.com/filebrowser/filebrowser/v2/users"
@@ -34,7 +35,10 @@ func (s *Settings) MakeUserDir(username, userScope, serverRoot string) (string, 
 
 	userScope = path.Join("/", userScope)
 
-	fs := afero.NewBasePathFs(afero.NewOsFs(), serverRoot)
+	// Home creation must use the same resolved-symlink confinement as request
+	// handling. A bare BasePathFs only provides lexical confinement and could
+	// follow a symlinked scope outside serverRoot while creating directories.
+	fs := files.NewScopedFs(afero.NewOsFs(), serverRoot)
 	if err := fs.MkdirAll(userScope, os.ModePerm); err != nil {
 		return "", fmt.Errorf("failed to create user home dir: [%s]: %w", userScope, err)
 	}

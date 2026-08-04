@@ -108,8 +108,39 @@ artifact is reproducible from the tagged commit.
   still present a time-of-check/time-of-use race; deployments must prevent
   untrusted local processes from mutating the served tree outside the API.
 - `github.com/disintegration/imaging` has an unfixed low-severity crafted-TIFF
-  crash advisory. Image processing can be disabled as a deployment mitigation.
+  crash advisory. TIFF inputs are decoded without a preliminary imaging
+  transform and malformed palette indexes are rejected before resizing, which
+  blocks the published panic condition while retaining valid TIFF support.
 - `golang.org/x/crypto/openpgp` is reported as unmaintained, but this application
   reaches `x/crypto` through `bcrypt`, not `openpgp`. The module-level scanner
   result remains documented until the dependency no longer contains that
   package or the scanner supports package reachability.
+
+## Scanner disposition record
+
+The 2026-08-04 default-branch review applied the following dispositions. Mike
+D. (`cryptnetworks`) owns each disposition; issue #2 tracks filesystem and
+CodeQL evidence, and issue #17 tracks dependency findings. Re-review is due by
+2026-11-02 or sooner if the relevant code, dependency, or trust boundary
+changes.
+
+- Request-derived filesystem paths are authorized against user rules and are
+  executed through `files.ScopedFs`, which resolves symbolic links immediately
+  before every operation and rejects targets outside the configured scope.
+  Traversal and escaping-symlink regression tests cover reads, writes, moves,
+  deletes, archives, subtitles, TUS uploads, and command working directories.
+  CodeQL does not model this `afero.Fs` implementation, so remaining instances
+  of `go/path-injection` on those flows are evidence-backed false positives.
+- User-home creation was the exception: it used a lexical `BasePathFs`. It now
+  uses `ScopedFs` and has a regression test proving that a symlinked scope
+  cannot create a directory outside the server root.
+- Authentication backend details are no longer serialized to console output;
+  the output is always a fixed redaction marker. This removes the
+  `go/clear-text-logging` flow and fails closed if new backend fields are added.
+- The imaging advisory has no upstream patched release. The published malformed
+  TIFF palette condition is rejected before any imaging transform. The residual
+  dependency finding is accepted as mitigated low risk pending an upstream fix
+  or library replacement.
+- The `x/crypto/openpgp` advisory is not reachable: the application imports only
+  `x/crypto/bcrypt`, and `govulncheck` reports no affected symbol or imported
+  package. Reassess if an OpenPGP import is introduced.

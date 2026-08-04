@@ -3,7 +3,9 @@ package img
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
+	"image/color"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
@@ -15,6 +17,21 @@ import (
 	"golang.org/x/image/bmp"
 	"golang.org/x/image/tiff"
 )
+
+func TestValidatePalettedImage(t *testing.T) {
+	palette := color.Palette{color.Black}
+
+	valid := image.NewPaletted(image.Rect(0, 0, 1, 1), palette)
+	if err := validatePalettedImage(valid); err != nil {
+		t.Fatalf("valid paletted image rejected: %v", err)
+	}
+
+	invalid := image.NewPaletted(image.Rect(0, 0, 1, 1), palette)
+	invalid.Pix[0] = 1
+	if err := validatePalettedImage(invalid); !errors.Is(err, ErrInvalidImage) {
+		t.Fatalf("invalid paletted image returned %v, want ErrInvalidImage", err)
+	}
+}
 
 func TestService_Resize(t *testing.T) {
 	testCases := map[string]struct {

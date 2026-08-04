@@ -196,7 +196,7 @@ func getAuthentication(flags *pflag.FlagSet, defaults ...interface{}) (settings.
 	return method, auther, nil
 }
 
-func printSettings(ser *settings.Server, set *settings.Settings, auther auth.Auther) error {
+func printSettings(ser *settings.Server, set *settings.Settings, _ auth.Auther) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
 	fmt.Fprintf(w, "Sign up:\t%t\n", set.Signup)
@@ -264,11 +264,10 @@ func printSettings(ser *settings.Server, set *settings.Settings, auther auth.Aut
 
 	w.Flush()
 
-	b, err := json.MarshalIndent(auth.ConfigForDisplay(auther), "", "  ")
-	if err != nil {
-		return err
-	}
-	fmt.Printf("\nAuther configuration (raw):\n\n%s\n\n", string(b))
+	// Authentication backends may gain new secret-bearing fields over time.
+	// Keep console output fail-closed instead of attempting to mirror and redact
+	// each backend's persisted representation here.
+	fmt.Printf("\nAuthentication configuration:\n\n%s\n\n", auth.RedactedConfigValue)
 	return nil
 }
 
