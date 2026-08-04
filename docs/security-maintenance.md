@@ -2,7 +2,7 @@
 
 This fork is being brought under active maintenance after the upstream project announced its wind-down. Current builds must still be treated as security-hardening work in progress. Do not expose them directly to the public internet without a trusted TLS-terminating authentication proxy.
 
-The master security tracker is [issue #2](https://github.com/cryptnetworks/filebrowser/issues/2). Implementation issues #3 through #15 split the critical vulnerabilities, scanning, documentation, and inherited backlog into reviewable work.
+The master security tracker is [issue #2](https://github.com/cryptnetworks/filebrowser/issues/2). Implementation issues #3 through #15 and #17 split the critical vulnerabilities, scanning, documentation, inherited dependency findings, and functional backlog into reviewable work.
 
 ## Immediate deployment controls
 
@@ -19,20 +19,22 @@ Until the linked fixes ship:
 
 ## Security automation
 
-| Layer | Workflow | When it runs | Initial policy |
+| Layer | Control | When it runs | Initial policy |
 | --- | --- | --- | --- |
-| SAST | `Security - CodeQL` | Pull requests, merge queue, master, weekly | Go and JavaScript/TypeScript security-and-quality queries |
+| SAST | GitHub-managed CodeQL default setup | Pull requests, protected-branch pushes, weekly | Extended queries for GitHub Actions, Go, and JavaScript/TypeScript; high-or-higher security alerts fail |
 | Dependency diff | `Security - Dependency Review` | Pull requests | Reject newly introduced high/critical vulnerable dependencies |
-| Dependency inventory | `Security - OSV Scanner` | Pull requests, merge queue, master, weekly | Differential PR scan and complete scheduled scan |
-| DAST | `Security - DAST Baseline` | Relevant pull requests, weekly, manual | Passive OWASP ZAP scan of an ephemeral noauth instance |
-| Secrets | GitHub secret scanning | Every push | Review and revoke every valid finding |
-| Artifact/container | Tracked in issue #13 | Release pipeline | SBOM, malware, vulnerability, signature, and provenance gates |
+| Dependency inventory | `Security - OSV Scanner` | Pull requests, merge queue, master, weekly | Block newly introduced PR findings and publish the complete scheduled baseline |
+| DAST | `Security - DAST Baseline` | Relevant pull requests, weekly, manual | Passive OWASP ZAP scan of an ephemeral noauth instance with retained JSON, HTML, and Markdown evidence |
+| Secrets | GitHub secret scanning and push protection | Every push | Block supported secrets; review and revoke every valid finding |
+| Artifact/container (“MAST”) | Tracked in issue #13 | Release pipeline | SBOM, malware, vulnerability, signature, and provenance gates |
+
+This repository has no native mobile application, so “MAST” is treated as malware, artifact, and supply-chain testing. If native mobile code is introduced, add platform-specific mobile application security testing.
 
 DAST active attacks must target only ephemeral CI instances. Authenticated contexts and API scans are tracked in issue #12.
 
 ## Scanner and action provenance
 
-Security tools are part of the attack surface. Prefer GitHub-owned actions or upstream reusable workflows, grant minimum token permissions, set timeouts, and pin third-party actions or images to reviewed immutable revisions.
+Security tools are part of the attack surface. GitHub Actions policy requires full-length commit-SHA pins. Repository workflows also pin the ZAP container by digest, grant minimum token permissions, set timeouts, cancel stale runs, use lockfile caches, and retain security evidence for review. Dependabot owns reviewed updates to action revisions.
 
 A March 2026 compromise affected Trivy releases and action tags. Do not add Trivy through a mutable tag. Before adopting it or an alternative, verify the release signature, immutable commit/image digest, incident-safe version, and the permissions/network access it receives.
 
@@ -45,6 +47,8 @@ A March 2026 compromise affected Trivy releases and action tags. Do not add Triv
 5. Suppressions must name an owner, reason, expiry date, and tracking issue.
 6. Add a regression test before marking a vulnerability fixed.
 7. Publish affected and patched versions when a release is available.
+
+Inherited dependency findings are owned by [issue #17](https://github.com/cryptnetworks/filebrowser/issues/17). Differential PR scans remain blocking for newly introduced vulnerabilities; the full baseline stays visible until remediation makes it suitable as a required release gate.
 
 ## Required release evidence
 
