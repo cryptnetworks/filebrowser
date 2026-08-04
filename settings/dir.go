@@ -26,7 +26,7 @@ func (s *Settings) MakeUserDir(username, userScope, serverRoot string) (string, 
 	if userScope == "" && s.CreateUserDir {
 		username = cleanUsername(username)
 		if username == "" || username == "-" || username == "." {
-			log.Printf("create user: invalid user for home dir creation: [%s]", username)
+			log.Print("create user: invalid user for home dir creation")
 			return "", errors.New("invalid user for home dir creation")
 		}
 		userScope = path.Join(s.UserHomeBasePath, username)

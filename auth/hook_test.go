@@ -1,11 +1,13 @@
 package auth
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
+	"github.com/filebrowser/filebrowser/v2/runner"
 	"github.com/filebrowser/filebrowser/v2/settings"
 	"github.com/filebrowser/filebrowser/v2/users"
 )
@@ -19,6 +21,25 @@ func writeHookScript(t *testing.T, body string) string {
 		t.Fatalf("failed to write hook script: %v", err)
 	}
 	return path
+}
+
+func TestHookAuthRejectsPATHResolvedExecutable(t *testing.T) {
+	binDir := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "executed")
+	command := filepath.Join(binDir, "relative-hook")
+	if err := os.WriteFile(command, []byte("#!/bin/sh\ntouch \"$MARKER\"\necho hook.action=block\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", binDir)
+	t.Setenv("MARKER", marker)
+
+	a := &HookAuth{Command: "relative-hook"}
+	if _, err := a.RunCommand(); !errors.Is(err, runner.ErrCommandPathNotAbsolute) {
+		t.Fatalf("got error %v, want %v", err, runner.ErrCommandPathNotAbsolute)
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("PATH-resolved hook executed: %v", err)
+	}
 }
 
 // TestRunCommandNoCredentialInjection ensures that attacker-controlled

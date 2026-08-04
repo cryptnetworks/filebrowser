@@ -264,7 +264,7 @@ func printSettings(ser *settings.Server, set *settings.Settings, auther auth.Aut
 
 	w.Flush()
 
-	b, err := json.MarshalIndent(auther, "", "  ")
+	b, err := json.MarshalIndent(auth.ConfigForDisplay(auther), "", "  ")
 	if err != nil {
 		return err
 	}

@@ -199,7 +199,7 @@ var resourcePutHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 
 	exists, err := afero.Exists(d.user.Fs, r.URL.Path)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return errToStatus(err), err
 	}
 	if !exists {
 		return http.StatusNotFound, nil

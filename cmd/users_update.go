@@ -23,7 +23,10 @@ options you want to change.`,
 	Args: cobra.ExactArgs(1),
 	RunE: withStore(func(cmd *cobra.Command, args []string, st *store) error {
 		flags := cmd.Flags()
-		username, id := parseUsernameOrID(args[0])
+		username, id, err := parseUsernameOrID(args[0])
+		if err != nil {
+			return err
+		}
 		password, err := flags.GetString("password")
 		if err != nil {
 			return err

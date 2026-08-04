@@ -162,11 +162,11 @@ var userPostHandler = withAdmin(func(w http.ResponseWriter, r *http.Request, d *
 
 	userHome, err := d.settings.MakeUserDir(req.Data.Username, req.Data.Scope, d.server.Root)
 	if err != nil {
-		log.Printf("create user: failed to mkdir user home dir: [%s]", userHome)
+		log.Print("create user: failed to create user home directory")
 		return http.StatusInternalServerError, err
 	}
 	req.Data.Scope = userHome
-	log.Printf("user: %s, home dir: [%s].", req.Data.Username, userHome)
+	log.Print("created user home directory")
 
 	err = d.store.Users.Save(req.Data)
 	if err != nil {

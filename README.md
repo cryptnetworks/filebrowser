@@ -16,6 +16,7 @@ Start with:
 
 - [Security policy](SECURITY.md)
 - [Security maintenance and deployment controls](docs/security-maintenance.md)
+- [Security remediation plan](docs/security-remediation-plan.md)
 - [Master security tracker](https://github.com/cryptnetworks/filebrowser/issues/2)
 - [Critical signup-scope fix](https://github.com/cryptnetworks/filebrowser/issues/3)
 

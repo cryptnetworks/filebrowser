@@ -74,5 +74,16 @@
     "vitest": "^4.1.10",
     "vue-tsc": "^3.3.9"
   },
+  "pnpm": {
+    "overrides": {
+      "@xmldom/xmldom@0.7.13": "0.8.13",
+      "@xmldom/xmldom@0.8.11": "0.8.13",
+      "brace-expansion@2.1.0": "2.1.4",
+      "brace-expansion@5.0.6": "5.0.9",
+      "esbuild@0.27.3": "0.28.1",
+      "lodash": "4.18.1",
+      "rollup": "4.62.4"
+    }
+  },
   "packageManager": "pnpm@10.33.4+sha512.1c67b3b359b2d408119ba1ed289f34b8fc3c6873412bec6fd264fbdc82489e510fcbecb9ce9d22dae7f3b76269d8441046014bdca53b9979cd7a561ad631b800"
 }

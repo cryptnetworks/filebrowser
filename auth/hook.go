@@ -13,6 +13,7 @@ import (
 
 	fberrors "github.com/filebrowser/filebrowser/v2/errors"
 	"github.com/filebrowser/filebrowser/v2/files"
+	"github.com/filebrowser/filebrowser/v2/runner"
 	"github.com/filebrowser/filebrowser/v2/settings"
 	"github.com/filebrowser/filebrowser/v2/users"
 )
@@ -85,7 +86,10 @@ func (a *HookAuth) LoginPage() bool {
 
 // RunCommand starts the hook command and returns the action
 func (a *HookAuth) RunCommand() (string, error) {
-	command := strings.Split(a.Command, " ")
+	command, err := runner.ParseDirectCommand(a.Command)
+	if err != nil {
+		return "", err
+	}
 
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("USERNAME=%s", a.Cred.Username))
@@ -164,7 +168,7 @@ func (a *HookAuth) SaveUser() (*users.User, error) {
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("user: %s, home dir: [%s].", u.Username, u.Scope)
+		log.Print("hook authentication provisioned a user")
 
 		if err := a.Users.SaveProvisioned(u, derivedScope); err != nil {
 			return nil, err

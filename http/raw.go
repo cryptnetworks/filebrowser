@@ -158,7 +158,7 @@ func getFiles(d *data, path, commonPath string) ([]archives.FileInfo, error) {
 			fPath := filepath.Join(path, name)
 			subFiles, err := getFiles(d, fPath, commonPath)
 			if err != nil {
-				log.Printf("Failed to get files from %s: %v", fPath, err)
+				log.Printf("Failed to inspect archive entry: %T", err)
 				continue
 			}
 			archiveFiles = append(archiveFiles, subFiles...)
@@ -185,7 +185,7 @@ func rawDirHandler(w http.ResponseWriter, r *http.Request, d *data, file *files.
 	for _, fname := range filenames {
 		archiveFiles, err := getFiles(d, fname, commonDir)
 		if err != nil {
-			log.Printf("Failed to get files from %s: %v", fname, err)
+			log.Printf("Failed to collect archive entry: %T", err)
 			continue
 		}
 		allFiles = append(allFiles, archiveFiles...)

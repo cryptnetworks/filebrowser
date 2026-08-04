@@ -446,7 +446,7 @@ func (i *FileInfo) readListing(checker rules.Checker, readHeader bool, calcImgRe
 		if !file.IsDir && strings.HasPrefix(mime.TypeByExtension(file.Extension), "image/") && calcImgRes {
 			resolution, err := calculateImageResolution(file.Fs, file.Path)
 			if err != nil {
-				log.Printf("Error calculating resolution for image %s: %v", file.Path, err)
+				log.Printf("Error calculating image resolution: %v", err)
 			} else {
 				file.Resolution = resolution
 			}
@@ -508,7 +508,7 @@ func readDirNames(afs afero.Fs, dirname string) ([]os.FileInfo, error) {
 		fPath := path.Join(dirname, name)
 		info, err := lstatIfPossible(afs, fPath)
 		if err != nil {
-			log.Printf("Skipping inaccessible file %s: %v", fPath, err)
+			log.Printf("Skipping inaccessible file: %T", err)
 			continue
 		}
 

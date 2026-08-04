@@ -53,12 +53,15 @@ func printUsers(usrs []*users.User) {
 	w.Flush()
 }
 
-func parseUsernameOrID(arg string) (username string, id uint) {
-	id64, err := strconv.ParseUint(arg, 10, 64)
+func parseUsernameOrID(arg string) (username string, id uint, err error) {
+	id64, err := strconv.ParseUint(arg, 10, strconv.IntSize)
 	if err != nil {
-		return arg, 0
+		if errors.Is(err, strconv.ErrRange) {
+			return "", 0, fmt.Errorf("user ID %q is out of range: %w", arg, err)
+		}
+		return arg, 0, nil
 	}
-	return "", uint(id64)
+	return "", uint(id64), nil
 }
 
 func addUserFlags(flags *pflag.FlagSet) {

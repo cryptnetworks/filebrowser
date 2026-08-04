@@ -16,8 +16,10 @@ var usersRmCmd = &cobra.Command{
 	Long:  `Delete a user by username or id`,
 	Args:  cobra.ExactArgs(1),
 	RunE: withStore(func(_ *cobra.Command, args []string, st *store) error {
-		username, id := parseUsernameOrID(args[0])
-		var err error
+		username, id, err := parseUsernameOrID(args[0])
+		if err != nil {
+			return err
+		}
 
 		if username != "" {
 			err = st.Users.Delete(username)

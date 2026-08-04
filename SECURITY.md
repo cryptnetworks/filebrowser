@@ -13,6 +13,9 @@ This fork is restoring active maintenance. Until the first fork release is publi
 
 The repository inherits eleven published advisories with no patched upstream version. See [the master tracker](https://github.com/cryptnetworks/filebrowser/issues/2) and [deployment controls](docs/security-maintenance.md).
 
+The current CodeQL audit baseline and alert-closure criteria are tracked in the
+[security remediation plan](docs/security-remediation-plan.md).
+
 ## Reporting a vulnerability
 
 Use GitHub's **Security → Report a vulnerability** flow for this fork when it is available. Do not file a public issue containing an undisclosed exploit, credentials, private data, or a working proof of concept.

@@ -17,6 +17,21 @@ Until the linked fixes ship:
 - Assume a stolen JWT remains usable until it expires.
 - Maintain tested offline backups before enabling uploads, delete, rename, or move.
 
+## Filesystem isolation
+
+Every user filesystem is rooted below the configured server root. With the
+default `followExternalSymlinks=false`, each filesystem operation first checks
+the resolved target and rejects symbolic links that lead outside the authorized
+root. This covers reads, writes, directory creation, TUS uploads, copy, move,
+rename, archive generation, and deletion through the shared filesystem layer.
+
+Setting `followExternalSymlinks=true` replaces that boundary with lexical path
+confinement and deliberately permits links to targets outside the user scope.
+It is not a tenant-isolation mode. Enable it only when the operator owns and
+trusts every reachable link target, records the risk acceptance, and constrains
+the process with a minimal operating-system mount. It defaults to disabled for
+new and existing configurations unless explicitly enabled.
+
 ## Security automation
 
 | Layer | Control | When it runs | Initial policy |

@@ -15,8 +15,10 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -300,4 +302,100 @@ func ExampleSplitCommandAndArgs() {
 	// Output:
 	// Windows: mkdir /P "C:\Program Files": mkdir [/P,C:\Program Files]
 	// Linux: mkdir -p /path/with\ space: mkdir [-p,/path/with space]
+}
+
+func TestParseAllowedCommandRequiresExactArgv(t *testing.T) {
+	runtimeGoos = osLinux
+	defer func() {
+		runtimeGoos = runtime.GOOS
+	}()
+
+	allowlist := []string{`/bin/ls -la`, `/bin/echo "hello world"`, `relative-command`, `broken "`}
+	tests := []struct {
+		name    string
+		raw     string
+		want    []string
+		wantErr error
+	}{
+		{name: "exact match", raw: `/bin/ls -la`, want: []string{"/bin/ls", "-la"}},
+		{name: "quoted exact match", raw: `/bin/echo "hello world"`, want: []string{"/bin/echo", "hello world"}},
+		{name: "additional arguments", raw: `/bin/ls -la /etc`, wantErr: ErrCommandNotAllowed},
+		{name: "relative request", raw: `relative-command`, wantErr: ErrCommandNotAllowed},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseAllowedCommand(tt.raw, allowlist)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("got error %v, want %v", err, tt.wantErr)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("got argv %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseAllowedCommandRejectsShellAndEnvironmentSyntax(t *testing.T) {
+	runtimeGoos = osLinux
+	defer func() {
+		runtimeGoos = runtime.GOOS
+	}()
+
+	allowlist := []string{`/bin/echo allowed`}
+	tests := []struct {
+		name string
+		raw  string
+	}{
+		{name: "semicolon", raw: `/bin/echo allowed; /bin/id`},
+		{name: "and", raw: `/bin/echo allowed && /bin/id`},
+		{name: "or", raw: `/bin/echo allowed || /bin/id`},
+		{name: "pipe", raw: `/bin/echo allowed | /bin/id`},
+		{name: "dollar", raw: `/bin/echo $PATH`},
+		{name: "backticks", raw: "/bin/echo `id`"},
+		{name: "command substitution", raw: `/bin/echo $(id)`},
+		{name: "environment assignment", raw: `PATH=/tmp /bin/echo allowed`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := ParseAllowedCommand(tt.raw, allowlist); !errors.Is(err, ErrCommandNotAllowed) {
+				t.Fatalf("got error %v, want %v", err, ErrCommandNotAllowed)
+			}
+		})
+	}
+}
+
+func TestParseDirectCommandRequiresAbsoluteExecutable(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+
+	if _, err := ParseDirectCommand("trusted-command --safe"); !errors.Is(err, ErrCommandPathNotAbsolute) {
+		t.Fatalf("got error %v, want %v", err, ErrCommandPathNotAbsolute)
+	}
+
+	got, err := ParseDirectCommand(`/bin/echo "literal; value"`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"/bin/echo", "literal; value"}; !slices.Equal(got, want) {
+		t.Fatalf("got argv %q, want %q", got, want)
+	}
+}
+
+func TestExpandCommandArgsOnlyUsesDocumentedValues(t *testing.T) {
+	mapping := func(key string) string {
+		if key == "FILE" {
+			return `/tmp/safe; id #`
+		}
+		return ""
+	}
+
+	directCommand := []string{"/bin/echo", "$FILE", "$PATH"}
+	expandCommandArgs(directCommand, mapping)
+	if got, want := directCommand[1], `/tmp/safe; id #`; got != want {
+		t.Fatalf("direct argv was not expanded as one value: got %q, want %q", got, want)
+	}
+	if got := directCommand[2]; got != "" {
+		t.Fatalf("undocumented environment variable expanded to %q", got)
+	}
 }

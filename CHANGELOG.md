@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## Unreleased
+
+### Security
+
+- Restrict interactive commands and hooks to absolute, administrator-configured
+  executables with explicit argument vectors and no shell interpretation.
+- Reject path escapes and external symbolic-link targets through the default
+  scoped filesystem, with regression coverage across authenticated file
+  operations and command working directories.
+- Centralize redaction of authentication configuration and protect exported
+  configuration files with owner-only permissions.
+- Reject overflowing user identifiers on the active platform width.
+- Grant workflows explicit least-privilege permissions and pin third-party
+  actions and scanner images to immutable revisions.
+- Update vulnerable frontend build dependencies and require a patched Go 1.25
+  runtime line.
+
 ## [2.63.23](https://github.com/filebrowser/filebrowser/compare/v2.63.22...v2.63.23) (2026-07-27)
 ## [2.63.22](https://github.com/filebrowser/filebrowser/compare/v2.63.21...v2.63.22) (2026-07-27)
 
