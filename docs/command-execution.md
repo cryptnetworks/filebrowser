@@ -22,6 +22,10 @@ Also, during the execution of the commands set for those hooks, there will be so
 * `USERNAME` with the user's username.
 * `DESTINATION` with the absolute path to the destination. Only used for **copy** and **rename.**
 
+Hook values are provided through the process environment. They are not
+interpolated into configured shell text before execution. Scripts must still
+quote expansions such as `"$FILE"` and treat every value as untrusted input.
+
 At this moment, you can edit the commands via the command line interface, using the following commands \(please check the flag `--help` to know more about them\):
 
 ```bash
@@ -36,7 +40,12 @@ Or you can use the web interface to manage them via **Settings** → **Global Se
 
 Within File Browser you can toggle the shell (`< >` icon at the top right) and this will open a shell command window at the bottom of the screen. This functionality can be turned on using the environment variable `FB_DISABLE_EXEC=false` or the flag `--disable-exec=false`.
 
-By default no commands are available as the command list is empty. To enable commands these need to either be done on a per-user basis (including for the Admin user).
+By default no commands are available as the command list is empty. Each entry
+is an exact command and argument vector: allowing `ls -la` permits only that
+invocation, not `ls`, `ls /other/path`, or a command followed by shell syntax.
+Interactive commands are executed directly and never through the configured
+shell. To enable commands, add exact invocations on a per-user basis (including
+for the Admin user).
 
 You can do this by adding them in Settings > User Management > (edit user) > Commands or to *apply to all new users created from that point forward* they can be set in Settings > Global Settings
 

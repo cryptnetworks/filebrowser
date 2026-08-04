@@ -71,6 +71,29 @@ func TestNewFs(t *testing.T) {
 	})
 }
 
+func TestScopedFsRejectsLexicalSiblingEscape(t *testing.T) {
+	base := t.TempDir()
+	scope := filepath.Join(base, "scope")
+	sibling := filepath.Join(base, "scope-sibling")
+	for _, dir := range []string{scope, sibling} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(sibling, "secret.txt"), []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	fs := NewScopedFs(afero.NewOsFs(), scope)
+	for _, name := range []string{"../scope-sibling/secret.txt", "/../scope-sibling/secret.txt"} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := fs.Open(name); !os.IsPermission(err) {
+				t.Fatalf("open %q returned %v, want permission error", name, err)
+			}
+		})
+	}
+}
+
 // TestBasePath verifies BasePath extracts the underlying *afero.BasePathFs from
 // either filesystem NewFs may return, so User.FullPath keeps working.
 func TestBasePath(t *testing.T) {

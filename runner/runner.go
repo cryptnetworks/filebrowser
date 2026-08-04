@@ -81,13 +81,12 @@ func (r *Runner) exec(raw, evt, path, dst string, user *users.User) error {
 			return os.Getenv(key)
 		}
 	}
-	for i, arg := range command {
-		if i == 0 {
-			continue
-		}
-
-		command[i] = os.Expand(arg, envMapping)
-	}
+	// When a shell is configured, let it expand the environment variables.
+	// Interpolating attacker-controlled file or user names into the shell text
+	// would cause their metacharacters to be parsed as commands. For direct
+	// execution, expansion is safe because each value remains a single argv.
+	usesShell := len(r.Shell) > 0 && r.Shell[0] != ""
+	expandCommandArgs(command, usesShell, envMapping)
 
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("FILE=%s", path))
@@ -115,4 +114,18 @@ func (r *Runner) exec(raw, evt, path, dst string, user *users.User) error {
 
 	log.Printf("[INFO] Blocking Command: \"%s\"", strings.Join(command, " "))
 	return cmd.Run()
+}
+
+func expandCommandArgs(command []string, usesShell bool, mapping func(string) string) {
+	if usesShell {
+		return
+	}
+
+	for i, arg := range command {
+		if i == 0 {
+			continue
+		}
+
+		command[i] = os.Expand(arg, mapping)
+	}
 }

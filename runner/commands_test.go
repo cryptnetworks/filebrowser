@@ -15,8 +15,10 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -300,4 +302,58 @@ func ExampleSplitCommandAndArgs() {
 	// Output:
 	// Windows: mkdir /P "C:\Program Files": mkdir [/P,C:\Program Files]
 	// Linux: mkdir -p /path/with\ space: mkdir [-p,/path/with space]
+}
+
+func TestParseAllowedCommandRequiresExactArgv(t *testing.T) {
+	runtimeGoos = osLinux
+	defer func() {
+		runtimeGoos = runtime.GOOS
+	}()
+
+	allowlist := []string{`ls -la`, `echo "hello world"`, `broken "`}
+	tests := []struct {
+		name    string
+		raw     string
+		want    []string
+		wantErr error
+	}{
+		{name: "exact match", raw: `ls -la`, want: []string{"ls", "-la"}},
+		{name: "quoted exact match", raw: `echo "hello world"`, want: []string{"echo", "hello world"}},
+		{name: "additional arguments", raw: `ls -la /etc`, wantErr: ErrCommandNotAllowed},
+		{name: "shell metacharacters", raw: `ls -la; id`, wantErr: ErrCommandNotAllowed},
+		{name: "command substitution", raw: `ls -la $(id)`, wantErr: ErrCommandNotAllowed},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseAllowedCommand(tt.raw, allowlist)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("got error %v, want %v", err, tt.wantErr)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("got argv %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExpandCommandArgsDoesNotInterpolateShellText(t *testing.T) {
+	mapping := func(key string) string {
+		if key == "FILE" {
+			return `/tmp/safe; id #`
+		}
+		return ""
+	}
+
+	shellCommand := []string{"sh", "-c", `echo "$FILE"`}
+	expandCommandArgs(shellCommand, true, mapping)
+	if got, want := shellCommand[2], `echo "$FILE"`; got != want {
+		t.Fatalf("shell command was interpolated: got %q, want %q", got, want)
+	}
+
+	directCommand := []string{"echo", "$FILE"}
+	expandCommandArgs(directCommand, false, mapping)
+	if got, want := directCommand[1], `/tmp/safe; id #`; got != want {
+		t.Fatalf("direct argv was not expanded as one value: got %q, want %q", got, want)
+	}
 }

@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/filebrowser/filebrowser/v2/users"
@@ -41,5 +43,28 @@ func TestCreateUserHomePreservesExplicitScope(t *testing.T) {
 	}
 	if user.Scope != "/custom" {
 		t.Errorf("explicit scope should be preserved, got %q", user.Scope)
+	}
+}
+
+func TestMakeUserDirConfinesExplicitTraversalToServerRoot(t *testing.T) {
+	base := t.TempDir()
+	serverRoot := filepath.Join(base, "server")
+	if err := os.MkdirAll(serverRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	s := &Settings{}
+	scope, err := s.MakeUserDir("alice", "../../outside", serverRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scope != "/outside" {
+		t.Fatalf("got normalized scope %q, want /outside", scope)
+	}
+	if info, err := os.Stat(filepath.Join(serverRoot, "outside")); err != nil || !info.IsDir() {
+		t.Fatalf("expected directory below server root: info=%v err=%v", info, err)
+	}
+	if _, err := os.Stat(filepath.Join(base, "outside")); !os.IsNotExist(err) {
+		t.Fatalf("traversal created a directory outside server root: %v", err)
 	}
 }
