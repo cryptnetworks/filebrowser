@@ -41,7 +41,7 @@ func commandWorkingDirectory(user *users.User, path string) (string, error) {
 	return user.FullPath(path), nil
 }
 
-func wsErr(ws *websocket.Conn, r *http.Request, status int, err error) {
+func wsErr(ws *websocket.Conn, status int, err error) {
 	txt := http.StatusText(status)
 	if err != nil || status >= 400 {
 		log.Printf("command websocket failed: status=%d error=%T", status, err)
@@ -63,7 +63,7 @@ var commandsHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *d
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			wsErr(conn, r, http.StatusInternalServerError, err)
+			wsErr(conn, http.StatusInternalServerError, err)
 			return 0, nil
 		}
 
@@ -76,7 +76,7 @@ var commandsHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *d
 	// Fail fast
 	if !d.server.EnableExec || !d.user.Perm.Execute {
 		if err := conn.WriteMessage(websocket.TextMessage, cmdNotAllowed); err != nil {
-			wsErr(conn, r, http.StatusInternalServerError, err)
+			wsErr(conn, http.StatusInternalServerError, err)
 		}
 
 		return 0, nil
@@ -86,19 +86,19 @@ var commandsHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *d
 	if err != nil {
 		if errors.Is(err, runner.ErrCommandNotAllowed) {
 			if err := conn.WriteMessage(websocket.TextMessage, cmdNotAllowed); err != nil {
-				wsErr(conn, r, http.StatusInternalServerError, err)
+				wsErr(conn, http.StatusInternalServerError, err)
 			}
 			return 0, nil
 		}
 		if err := conn.WriteMessage(websocket.TextMessage, []byte(err.Error())); err != nil {
-			wsErr(conn, r, http.StatusInternalServerError, err)
+			wsErr(conn, http.StatusInternalServerError, err)
 		}
 		return 0, nil
 	}
 
 	workingDirectory, err := commandWorkingDirectory(d.user, r.URL.Path)
 	if err != nil {
-		wsErr(conn, r, errToStatus(err), err)
+		wsErr(conn, errToStatus(err), err)
 		return 0, nil
 	}
 
@@ -107,18 +107,18 @@ var commandsHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *d
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		wsErr(conn, r, http.StatusInternalServerError, err)
+		wsErr(conn, http.StatusInternalServerError, err)
 		return 0, nil
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		wsErr(conn, r, http.StatusInternalServerError, err)
+		wsErr(conn, http.StatusInternalServerError, err)
 		return 0, nil
 	}
 
 	if err := cmd.Start(); err != nil {
-		wsErr(conn, r, http.StatusInternalServerError, err)
+		wsErr(conn, http.StatusInternalServerError, err)
 		return 0, nil
 	}
 
@@ -130,7 +130,7 @@ var commandsHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *d
 	}
 
 	if err := cmd.Wait(); err != nil {
-		wsErr(conn, r, http.StatusInternalServerError, err)
+		wsErr(conn, http.StatusInternalServerError, err)
 	}
 
 	return 0, nil
