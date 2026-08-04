@@ -1,0 +1,10 @@
+name: "File Browser security and quality"
+
+queries:
+  - uses: security-and-quality
+
+paths-ignore:
+  - "frontend/node_modules"
+  - "frontend/dist"
+  - "docs/cli"
+  - "**/*.min.js"
