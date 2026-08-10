@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:26-alpine AS frontend-builder
 
 WORKDIR /src/frontend
 
@@ -11,7 +11,7 @@ COPY frontend/ ./
 RUN pnpm run build
 
 
-FROM --platform=$BUILDPLATFORM golang:1.25.12-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:1.26.5-alpine AS backend-builder
 
 ARG TARGETOS
 ARG TARGETARCH
