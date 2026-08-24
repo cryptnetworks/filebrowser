@@ -36,7 +36,7 @@ jobs:
         run: git checkout "$GITHUB_BASE_REF"
       - name: Capture target dependency findings
         continue-on-error: true
-        uses: google/osv-scanner-action/osv-scanner-action@9fd1bcce27f67e3bd819a0a7620e332803dc43bc # v2.3.8
+        uses: google/osv-scanner-action/osv-scanner-action@ffa0a5f39214d80778c9b494822d94d0d9668458 # v2.3.8
         with:
           scan-args: |-
             --format=json
@@ -48,7 +48,7 @@ jobs:
         run: git checkout --force "$GITHUB_SHA"
       - name: Capture proposed dependency findings
         continue-on-error: true
-        uses: google/osv-scanner-action/osv-scanner-action@9fd1bcce27f67e3bd819a0a7620e332803dc43bc # v2.3.8
+        uses: google/osv-scanner-action/osv-scanner-action@ffa0a5f39214d80778c9b494822d94d0d9668458 # v2.3.8
         with:
           scan-args: |-
             --format=json
@@ -57,7 +57,7 @@ jobs:
             ./
 
       - name: Block newly introduced vulnerabilities
-        uses: google/osv-scanner-action/osv-reporter-action@9fd1bcce27f67e3bd819a0a7620e332803dc43bc # v2.3.8
+        uses: google/osv-scanner-action/osv-reporter-action@ffa0a5f39214d80778c9b494822d94d0d9668458 # v2.3.8
         with:
           scan-args: |-
             --output-files=results.sarif
@@ -79,7 +79,7 @@ jobs:
 
       - name: Publish results to code scanning
         if: always() && hashFiles('results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           sarif_file: results.sarif
 
@@ -96,7 +96,7 @@ jobs:
 
       - name: Capture dependency findings
         continue-on-error: true
-        uses: google/osv-scanner-action/osv-scanner-action@9fd1bcce27f67e3bd819a0a7620e332803dc43bc # v2.3.8
+        uses: google/osv-scanner-action/osv-scanner-action@ffa0a5f39214d80778c9b494822d94d0d9668458 # v2.3.8
         with:
           scan-args: |-
             --format=json
@@ -105,7 +105,7 @@ jobs:
             ./
 
       - name: Generate full-scan SARIF
-        uses: google/osv-scanner-action/osv-reporter-action@9fd1bcce27f67e3bd819a0a7620e332803dc43bc # v2.3.8
+        uses: google/osv-scanner-action/osv-reporter-action@ffa0a5f39214d80778c9b494822d94d0d9668458 # v2.3.8
         with:
           scan-args: |-
             --output-files=results.sarif
@@ -125,6 +125,6 @@ jobs:
 
       - name: Publish results to code scanning
         if: always() && hashFiles('results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           sarif_file: results.sarif
