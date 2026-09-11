@@ -1,0 +1,3 @@
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+reason = "The application imports only golang.org/x/crypto/bcrypt; the deprecated openpgp packages covered by this advisory are not in the build graph (verified with `go mod why golang.org/x/crypto/openpgp`). The module has no fixed release for this package-level advisory."
