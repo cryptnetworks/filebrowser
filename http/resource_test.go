@@ -1,6 +1,7 @@
 package fbhttp
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -182,6 +183,73 @@ func TestResourcePostRejectsDanglingSymlinkWriteEscape(t *testing.T) {
 	}
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("expected 403, got %d body=%q", rec.Code, rec.Body.String())
+	}
+}
+
+func TestResourceGetEncodesTextWithoutBufferingWholeFile(t *testing.T) {
+	root := t.TempDir()
+	userScope := filepath.Join(root, "user")
+	if err := os.MkdirAll(userScope, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	content := strings.Repeat("A", 1<<20+123)
+	if err := os.WriteFile(filepath.Join(userScope, "note.txt"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	key := []byte("test-signing-key")
+	perm := users.Permissions{Download: true}
+	st := scopedUserStorage(t, userScope, perm, key)
+	signed := signToken(t, perm, key)
+
+	req, _ := http.NewRequest(http.MethodGet, "/note.txt", http.NoBody)
+	req.Header.Set("X-Auth", signed)
+	req.Header.Set("X-Encoding", "true")
+	rec := httptest.NewRecorder()
+	handle(resourceGetHandler, "", st, &settings.Server{}).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%q", rec.Code, rec.Body.String())
+	}
+	body, err := io.ReadAll(rec.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != content {
+		t.Fatalf("encoded text body mismatch: got %d bytes", len(body))
+	}
+}
+
+func TestResourceGetRejectsTraversalPath(t *testing.T) {
+	root := t.TempDir()
+	userScope := filepath.Join(root, "user")
+	if err := os.MkdirAll(userScope, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "secret.txt"), []byte("OUT-OF-SCOPE"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	key := []byte("test-signing-key")
+	perm := users.Permissions{Download: true}
+	st := scopedUserStorage(t, userScope, perm, key)
+	signed := signToken(t, perm, key)
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.test/placeholder", http.NoBody)
+	// Use the Windows separator form so the outer HTTP mux does not normalize
+	// the request before resourceGetHandler validates it.
+	req.URL.Path = "/..\\secret.txt"
+	req.Header.Set("X-Auth", signed)
+	req.Header.Set("X-Encoding", "true")
+	rec := httptest.NewRecorder()
+	handle(resourceGetHandler, "", st, &settings.Server{}).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%q", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "OUT-OF-SCOPE") {
+		t.Fatal("traversal response exposed out-of-scope content")
 	}
 }
 

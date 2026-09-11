@@ -60,7 +60,7 @@ Until the critical and high-priority issues in the master tracker are resolved:
 
 - Disable signup.
 - Disable command execution, runners, and hooks.
-- Do not accept proxy-auth headers from untrusted networks.
+- Do not accept proxy-auth headers from untrusted networks; require an explicit trusted CIDR allowlist for proxy auth.
 - Use a non-root container with minimal mounts.
 - Require a trusted TLS and authentication proxy.
 - Maintain tested offline backups.

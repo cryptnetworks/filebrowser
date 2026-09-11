@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -65,6 +66,39 @@ func TestGetSettingsFollowExternalSymlinks(t *testing.T) {
 
 	if !ser.FollowExternalSymlinks {
 		t.Error("expected FollowExternalSymlinks to be persisted as true")
+	}
+}
+
+func TestGetProxyAuthTrustedCIDRs(t *testing.T) {
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	addConfigFlags(flags)
+
+	if err := flags.Parse([]string{
+		"--auth.method=proxy",
+		"--auth.header=X-Remote-User",
+		"--auth.trustedCIDRs=127.0.0.1/32",
+		"--auth.trustedCIDRs=::1/128",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	method, auther, err := getAuthentication(flags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if method != settings.AuthMethod(auth.MethodProxyAuth) {
+		t.Fatalf("method = %q, want proxy", method)
+	}
+
+	proxy, ok := auther.(*auth.ProxyAuth)
+	if !ok {
+		t.Fatalf("auth type = %T, want *auth.ProxyAuth", auther)
+	}
+	if proxy.Header != "X-Remote-User" {
+		t.Fatalf("header = %q, want X-Remote-User", proxy.Header)
+	}
+	if got, want := proxy.TrustedCIDRs, []string{"127.0.0.1/32", "::1/128"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("trusted CIDRs = %#v, want %#v", got, want)
 	}
 }
 

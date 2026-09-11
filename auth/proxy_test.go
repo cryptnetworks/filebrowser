@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -75,9 +76,10 @@ func TestProxyAuthCreateUserRestrictsDefaults(t *testing.T) {
 		},
 	}
 
-	auth := ProxyAuth{Header: "X-Remote-User"}
+	auth := ProxyAuth{Header: "X-Remote-User", TrustedCIDRs: []string{"127.0.0.1/32"}}
 	req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.Header.Set("X-Remote-User", "newproxyuser")
+	req.RemoteAddr = "127.0.0.1:12345"
 
 	user, err := auth.Auth(req, store, s, srv)
 	if err != nil {
@@ -98,6 +100,46 @@ func TestProxyAuthCreateUserRestrictsDefaults(t *testing.T) {
 	}
 }
 
+func TestProxyAuthRejectsUntrustedOrAmbiguousIdentity(t *testing.T) {
+	t.Parallel()
+
+	store := &mockUserStore{users: make(map[string]*users.User)}
+	srv := &settings.Server{Root: t.TempDir()}
+	s := &settings.Settings{
+		Key:        []byte("key"),
+		AuthMethod: MethodProxyAuth,
+	}
+
+	auth := ProxyAuth{
+		Header:       "X-Remote-User",
+		TrustedCIDRs: []string{"127.0.0.1/32"},
+	}
+
+	t.Run("untrusted remote is rejected", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
+		req.RemoteAddr = "192.0.2.10:12345"
+		req.Header.Set("X-Remote-User", "newproxyuser")
+
+		if _, err := auth.Auth(req, store, s, srv); !os.IsPermission(err) {
+			t.Fatalf("expected permission error for untrusted remote, got %v", err)
+		}
+		if _, ok := store.users["newproxyuser"]; ok {
+			t.Fatal("untrusted request should not provision a user")
+		}
+	})
+
+	t.Run("duplicated identity header is rejected", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
+		req.RemoteAddr = "127.0.0.1:12345"
+		req.Header.Add("X-Remote-User", "alice")
+		req.Header.Add("X-Remote-User", "bob")
+
+		if _, err := auth.Auth(req, store, s, srv); !os.IsPermission(err) {
+			t.Fatalf("expected permission error for duplicated header, got %v", err)
+		}
+	})
+}
+
 // With CreateUserDir enabled, two distinct proxy-authenticated users must each
 // receive their own home directory instead of both inheriting the server root.
 func TestProxyAuthCreateUserDirIsolatesScope(t *testing.T) {
@@ -116,10 +158,11 @@ func TestProxyAuthCreateUserDirIsolatesScope(t *testing.T) {
 		},
 	}
 
-	auth := ProxyAuth{Header: "X-Remote-User"}
+	auth := ProxyAuth{Header: "X-Remote-User", TrustedCIDRs: []string{"127.0.0.1/32"}}
 	provision := func(name string) *users.User {
 		req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
 		req.Header.Set("X-Remote-User", name)
+		req.RemoteAddr = "127.0.0.1:12345"
 		u, err := auth.Auth(req, store, s, srv)
 		if err != nil {
 			t.Fatalf("Auth(%q) error: %v", name, err)

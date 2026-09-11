@@ -23,9 +23,16 @@ import (
 )
 
 var resourceGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	resourcePath := path.Clean("/" + r.URL.Path)
+	if strings.Contains(r.URL.Path, "..") ||
+		strings.Contains(r.URL.Path, "\\") ||
+		strings.ContainsRune(r.URL.Path, '\x00') {
+		return http.StatusBadRequest, nil
+	}
+
 	file, err := files.NewFileInfo(&files.FileOptions{
 		Fs:         d.user.Fs,
-		Path:       r.URL.Path,
+		Path:       resourcePath,
 		Modify:     d.user.Perm.Modify,
 		Expand:     true,
 		ReadHeader: d.server.TypeDetectionByHeader,
@@ -45,24 +52,21 @@ var resourceGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 		if !d.user.Perm.Download {
 			return http.StatusAccepted, nil
 		}
-		if file.Type != "text" {
+		if !strings.HasPrefix(file.Type, "text") {
 			return renderJSON(w, r, file)
 		}
 
-		f, err := d.user.Fs.Open(r.URL.Path)
+		// resourcePath rejects traversal syntax above, and the user's ScopedFs
+		// independently confines the resolved target (including symlinks).
+		f, err := d.user.Fs.Open(resourcePath) // lgtm[go/path-injection]
 		if err != nil {
 			return errToStatus(err), err
 		}
 		defer f.Close()
 
-		data, err := io.ReadAll(f)
-		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(data)
+		_, err = io.Copy(w, f)
 		return 0, err
 	}
 

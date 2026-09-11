@@ -10,7 +10,7 @@ Until the linked fixes ship:
 
 - Keep self-signup disabled.
 - Keep command execution, runners, and hooks disabled.
-- Do not trust proxy-auth headers from arbitrary clients.
+- Do not trust proxy-auth headers from arbitrary clients; configure an explicit trusted CIDR allowlist for proxy auth.
 - Run File Browser as a non-root user in a container.
 - Mount only the directory that File Browser is intended to serve.
 - Put the service behind a reverse proxy that supplies TLS and independent authentication.
