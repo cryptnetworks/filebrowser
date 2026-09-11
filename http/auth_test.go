@@ -93,7 +93,7 @@ func TestExpiredTokenNeedsProxyAssertion(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("failed to save settings: %v", err)
 	}
-	if err := st.Auth.Save(&fbAuth.ProxyAuth{Header: proxyHeader}); err != nil {
+	if err := st.Auth.Save(&fbAuth.ProxyAuth{Header: proxyHeader, TrustedCIDRs: []string{"127.0.0.1/32"}}); err != nil {
 		t.Fatalf("failed to save auther: %v", err)
 	}
 
@@ -117,6 +117,7 @@ func TestExpiredTokenNeedsProxyAssertion(t *testing.T) {
 	get := func(token, proxyUser string) *httptest.ResponseRecorder {
 		req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
 		req.Header.Set("X-Auth", token)
+		req.RemoteAddr = "127.0.0.1:12345"
 		if proxyUser != "" {
 			req.Header.Set(proxyHeader, proxyUser)
 		}
@@ -140,6 +141,18 @@ func TestExpiredTokenNeedsProxyAssertion(t *testing.T) {
 	t.Run("expired token the proxy still asserts is accepted", func(t *testing.T) {
 		if rec := get(expiredToken, "u"); rec.Code != http.StatusOK {
 			t.Errorf("expired token asserted by the proxy = %d, body=%q; want 200", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("expired token from an untrusted remote is rejected", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
+		req.Header.Set("X-Auth", expiredToken)
+		req.Header.Set(proxyHeader, "u")
+		req.RemoteAddr = "192.0.2.10:12345"
+		rec := httptest.NewRecorder()
+		handle(protected, "", st, &settings.Server{}).ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("expired token from untrusted remote = %d, body=%q; want 401", rec.Code, rec.Body.String())
 		}
 	})
 

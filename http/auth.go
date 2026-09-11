@@ -96,12 +96,12 @@ func proxyAsserts(r *http.Request, d *data, id uint) bool {
 	}
 
 	proxy, ok := auther.(*fbAuth.ProxyAuth)
-	if !ok || proxy.Header == "" {
+	if !ok || proxy.Header == "" || !proxy.TrustedRequest(r) {
 		return false
 	}
 
-	username := r.Header.Get(proxy.Header)
-	if username == "" {
+	username, ok := proxy.Username(r)
+	if !ok {
 		return false
 	}
 

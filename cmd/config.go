@@ -44,6 +44,7 @@ func addConfigFlags(flags *pflag.FlagSet) {
 
 	flags.String("auth.method", string(auth.MethodJSONAuth), "authentication type")
 	flags.String("auth.header", "", "HTTP header for auth.method=proxy")
+	flags.StringSlice("auth.trustedCIDRs", nil, "trusted proxy CIDRs for auth.method=proxy")
 	flags.String("auth.command", "", "command for auth.method=hook")
 	flags.String("auth.logoutPage", "", "url of custom logout page")
 
@@ -99,7 +100,7 @@ func getProxyAuth(flags *pflag.FlagSet, defaultAuther map[string]interface{}) (a
 		return nil, err
 	}
 
-	if header == "" && defaultAuther != nil {
+	if !flags.Changed("auth.header") && defaultAuther != nil {
 		header = defaultAuther["header"].(string)
 	}
 
@@ -107,7 +108,32 @@ func getProxyAuth(flags *pflag.FlagSet, defaultAuther map[string]interface{}) (a
 		return nil, errors.New("you must set the flag 'auth.header' for method 'proxy'")
 	}
 
-	return &auth.ProxyAuth{Header: header}, nil
+	trustedCIDRs, err := flags.GetStringSlice("auth.trustedCIDRs")
+	if err != nil {
+		return nil, err
+	}
+	if !flags.Changed("auth.trustedCIDRs") && defaultAuther != nil {
+		trustedCIDRs = stringsFromDefaultAuther(defaultAuther["trustedCidrs"])
+	}
+
+	return &auth.ProxyAuth{Header: header, TrustedCIDRs: trustedCIDRs}, nil
+}
+
+func stringsFromDefaultAuther(value interface{}) []string {
+	switch typed := value.(type) {
+	case []string:
+		return append([]string{}, typed...)
+	case []interface{}:
+		res := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if s, ok := item.(string); ok {
+				res = append(res, s)
+			}
+		}
+		return res
+	default:
+		return nil
+	}
 }
 
 func getNoAuth() auth.Auther {
