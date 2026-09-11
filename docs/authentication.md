@@ -31,14 +31,14 @@ Where `https://recaptcha.net` is any provider you want.
 If you have a reverse proxy you want to use to login your users, you do it via our `proxy` authentication method. To configure this method, your proxy must send an HTTP header containing the username of the logged in user:
 
 ```sh
-filebrowser config set --auth.method=proxy --auth.header=X-My-Header
+filebrowser config set --auth.method=proxy --auth.header=X-My-Header --auth.trustedCIDRs=127.0.0.1/32,::1/128
 ```
 
 Where `X-My-Header` is the HTTP header provided by your proxy with the username.
 
 > [!WARNING]
 > 
-> File Browser will blindly trust the provided header. If the proxy can be bypassed, an attacker could simply attach the header and get admin access. Please ensure that File Browser is not accessible from untrusted networks, and that the proxy is correctly configured to strip/overwrite the header from client requests.
+> File Browser only honors the proxy header when the request comes from an explicit trusted CIDR. If the proxy can be bypassed, an attacker could still attach the header and get admin access if the app is exposed more broadly. Make sure the proxy strips or overwrites the header, and keep the trusted CIDR list as small as possible.
 
 ## Hook Authentication
 

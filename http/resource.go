@@ -45,7 +45,7 @@ var resourceGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 		if !d.user.Perm.Download {
 			return http.StatusAccepted, nil
 		}
-		if file.Type != "text" {
+		if !strings.HasPrefix(file.Type, "text") {
 			return renderJSON(w, r, file)
 		}
 
@@ -55,14 +55,9 @@ var resourceGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 		}
 		defer f.Close()
 
-		data, err := io.ReadAll(f)
-		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(data)
+		_, err = io.Copy(w, f)
 		return 0, err
 	}
 
