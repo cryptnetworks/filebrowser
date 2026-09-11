@@ -221,6 +221,38 @@ func TestResourceGetEncodesTextWithoutBufferingWholeFile(t *testing.T) {
 	}
 }
 
+func TestResourceGetRejectsTraversalPath(t *testing.T) {
+	root := t.TempDir()
+	userScope := filepath.Join(root, "user")
+	if err := os.MkdirAll(userScope, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "secret.txt"), []byte("OUT-OF-SCOPE"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	key := []byte("test-signing-key")
+	perm := users.Permissions{Download: true}
+	st := scopedUserStorage(t, userScope, perm, key)
+	signed := signToken(t, perm, key)
+
+	req := httptest.NewRequest(http.MethodGet, "http://example.test/placeholder", http.NoBody)
+	// Use the Windows separator form so the outer HTTP mux does not normalize
+	// the request before resourceGetHandler validates it.
+	req.URL.Path = "/..\\secret.txt"
+	req.Header.Set("X-Auth", signed)
+	req.Header.Set("X-Encoding", "true")
+	rec := httptest.NewRecorder()
+	handle(resourceGetHandler, "", st, &settings.Server{}).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%q", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "OUT-OF-SCOPE") {
+		t.Fatal("traversal response exposed out-of-scope content")
+	}
+}
+
 // Regression for the symlink-following delete escape (GHSA-hq4g-mpch-f9vp /
 // GHSA-fmm7-x4gx-8jhr): a Create-only user POSTing to a child of an escaping
 // symlinked directory must not delete the out-of-scope target through the
