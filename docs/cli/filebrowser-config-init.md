@@ -19,11 +19,12 @@ filebrowser config init [flags]
 ```
       --aceEditorTheme string            ace editor's syntax highlighting theme for users
   -a, --address string                   address to listen on (default "127.0.0.1")
+      --auth.autoProvision               allow trusted proxies to provision unknown users independently of signup
       --auth.command string              command for auth.method=hook
       --auth.header string               HTTP header for auth.method=proxy
-      --auth.trustedCIDRs strings         trusted proxy CIDRs for auth.method=proxy
       --auth.logoutPage string           url of custom logout page
       --auth.method string               authentication type (default "json")
+      --auth.trustedCIDRs strings        trusted proxy CIDRs for auth.method=proxy
   -b, --baseURL string                   base url
       --branding.color string            set the theme color
       --branding.disableExternal         disable external links such as GitHub links

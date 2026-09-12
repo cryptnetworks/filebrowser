@@ -31,9 +31,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Scan target branch
-        continue-on-error: true
-        run: git checkout "$GITHUB_BASE_REF"
+      - name: Scan target commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: git checkout --detach "$BASE_SHA"
       - name: Capture target dependency findings
         continue-on-error: true
         uses: google/osv-scanner-action/osv-scanner-action@8e5cf47b818121e8b405931c82126c2630b0b20d # v2.3.8
@@ -43,6 +44,9 @@ jobs:
             --output-file=old-results.json
             --recursive
             ./
+
+      - name: Validate target scan evidence
+        run: python3 -c 'import json; d=json.load(open("old-results.json")); assert "results" in d and (d["results"] is None or isinstance(d["results"], list))'
 
       - name: Restore proposed change
         run: git checkout --force "$GITHUB_SHA"
@@ -55,6 +59,9 @@ jobs:
             --output-file=new-results.json
             --recursive
             ./
+
+      - name: Validate proposed scan evidence
+        run: python3 -c 'import json; d=json.load(open("new-results.json")); assert "results" in d and (d["results"] is None or isinstance(d["results"], list))'
 
       - name: Block newly introduced vulnerabilities
         uses: google/osv-scanner-action/osv-reporter-action@8e5cf47b818121e8b405931c82126c2630b0b20d # v2.3.8
@@ -103,6 +110,9 @@ jobs:
             --output=results.json
             --recursive
             ./
+
+      - name: Validate full scan evidence
+        run: python3 -c 'import json; d=json.load(open("results.json")); assert "results" in d and (d["results"] is None or isinstance(d["results"], list))'
 
       - name: Generate full-scan SARIF
         uses: google/osv-scanner-action/osv-reporter-action@8e5cf47b818121e8b405931c82126c2630b0b20d # v2.3.8

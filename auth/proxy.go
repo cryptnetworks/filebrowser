@@ -14,13 +14,14 @@ import (
 	"github.com/filebrowser/filebrowser/v2/users"
 )
 
-// MethodProxyAuth is used to identify no auth.
+// MethodProxyAuth identifies proxy header authentication.
 const MethodProxyAuth settings.AuthMethod = "proxy"
 
 // ProxyAuth is a proxy implementation of an auther.
 type ProxyAuth struct {
-	Header       string   `json:"header"`
-	TrustedCIDRs []string `json:"trustedCidrs,omitempty"`
+	Header        string   `json:"header"`
+	TrustedCIDRs  []string `json:"trustedCidrs,omitempty"`
+	AutoProvision bool     `json:"autoProvision"`
 }
 
 // Auth authenticates the user via an HTTP header.
@@ -38,6 +39,10 @@ func (a ProxyAuth) Auth(r *http.Request, usr users.Store, setting *settings.Sett
 
 	user, err := usr.Get(srv.Root, srv.FollowExternalSymlinks, username)
 	if errors.Is(err, fberrors.ErrNotExist) {
+		if !a.AutoProvision {
+			log.Print("proxy auth rejected: provisioning disabled")
+			return nil, os.ErrPermission
+		}
 		return a.createUser(usr, setting, srv, username)
 	}
 	return user, err
@@ -76,13 +81,19 @@ func (a ProxyAuth) TrustedRequest(r *http.Request) bool {
 // Username returns the asserted identity from the configured proxy header.
 // Ambiguous or duplicated header values are rejected.
 func (a ProxyAuth) Username(r *http.Request) (string, bool) {
-	values := r.Header.Values(a.Header)
+	// Inspect case variants too: middleware may insert non-canonical map keys.
+	var values []string
+	for name, entries := range r.Header {
+		if strings.EqualFold(name, a.Header) {
+			values = append(values, entries...)
+		}
+	}
 	if len(values) != 1 {
 		return "", false
 	}
 
 	username := strings.TrimSpace(values[0])
-	if username == "" {
+	if username == "" || strings.ContainsAny(username, ",\r\n\x00") {
 		return "", false
 	}
 

@@ -1,146 +1,77 @@
 # Security remediation plan
 
-Last updated: 2026-08-04
+Last reviewed: 2026-09-11. Owner: `cryptnetworks`. Review monthly, after security
+merges, and before release. Track work in [#2](https://github.com/cryptnetworks/filebrowser/issues/2)
+and dependency findings in [#17](https://github.com/cryptnetworks/filebrowser/issues/17).
 
-This document tracks the security baseline for `cryptnetworks/filebrowser` and
-the work required before a patched fork release can be considered. The current
-implementation is under review in [pull request #18](https://github.com/cryptnetworks/filebrowser/pull/18).
+## Current evidence
 
-## CodeQL baseline
+The reviewed master commit is `1e232ed201a2287cdc9d183274354ad7b05d53d1`.
+The [OSV workflow run](https://github.com/cryptnetworks/filebrowser/actions/runs/34649423810)
+completed successfully but its full report still contains one low-severity
+finding. Open Dependabot and code-scanning API exports returned zero alerts.
+These are different inventories; an empty GitHub alert list is not a clean OSV scan.
 
-The default-branch scan currently contains 40 open alerts:
+Raw evidence is retained under [security-baseline/2026-09-11](security-baseline/2026-09-11/README.md):
+OSV JSON/SARIF, open alert exports, local `govulncheck` output, and CI timing data.
+No compatible dependency upgrade is indicated by the remaining report.
 
-| Priority | Alerts | Rule | Remediation status |
-| --- | ---: | --- | --- |
-| Critical | 1 | `go/command-injection` | PR analysis has zero CodeQL findings; default branch awaits merge and rescan |
-| High | 30 | `go/path-injection` | PR analysis has zero CodeQL findings; confinement evidence expanded |
-| High | 2 | `go/clear-text-logging` | PR analysis has zero CodeQL findings; sensitive command arguments are not logged |
-| High | 1 | `go/incorrect-integer-conversion` | PR analysis has zero CodeQL findings; boundary cases covered |
-| Medium | 6 | `actions/missing-workflow-permissions` | PR analysis has zero CodeQL findings; workflow permissions verified |
+| Advisory aliases | Dependency / exposure | Treatment |
+| --- | --- | --- |
+| GHSA-q7pp-wcgr-pffx / CVE-2023-36308 | Direct Go dependency `github.com/disintegration/imaging` 1.6.2; shipped preview processing; low severity; no fixed version in report | The crafted TIFF palette condition is rejected before imaging transforms. Keep the scanner finding visible; `img/service_test.go` covers malformed palettes. This is mitigation, not a patched dependency. |
+| GO-2026-5932 | Direct module `golang.org/x/crypto`; application imports bcrypt, not affected OpenPGP packages | Existing `osv-scanner.toml` exception retained. Recheck package reachability when imports change. Local govulncheck reports no reachable vulnerability. |
 
-CodeQL records alerts against the default branch. An alert is not considered
-closed merely because a pull request contains a proposed fix.
+Both dispositions were previously recorded by `cryptnetworks` on 2026-08-04.
+Review is due **2026-11-02**, or sooner if code, dependencies, or the trust boundary
+changes. Issue #17 owns review. Limit preview resource exposure and retain
+malformed-image regression tests for imaging; prohibit introducing OpenPGP
+without reassessing the exception. Expiry is a manual review deadline, not an
+automatically enforced OSV setting.
 
-## Remediation phases
+## Implemented hardening and remaining work
 
-### 1. Land the immediate CodeQL fixes
+PR #18 and subsequent security PRs are merged. The old 40-alert CodeQL table was
+a historical baseline, not the current status. Implemented work includes scoped
+filesystem checks, command argument handling, authentication-secret redaction,
+integer boundary checks, TUS length/integrity fixes, and share response redaction.
+These changes do not complete every advisory workstream.
 
-- Require all command features to use absolute administrator-approved
-  executables and explicit argument vectors; never evaluate requests or hook
-  configuration through a shell.
-- Keep attacker-controlled hook values in single arguments or documented
-  environment entries and reject `PATH`-resolved executables.
-- Redact authentication secrets from configuration output and remove invalid
-  usernames from logs.
-- Reject overflowing user IDs instead of accepting a truncated conversion.
-- Give workflows explicit read-only permissions and pin third-party actions to
-  immutable commit SHAs.
-- Restore valid Dependabot coverage for Go, npm, GitHub Actions, and Docker.
+- **Proxy authentication (#4):** trusted immediate-peer CIDRs and duplicate-header
+  rejection exist. The first-batch change adds explicit default-off provisioning,
+  case-variant/merged-header rejection, policy tests, and proxy deployment examples.
+- **Sessions (#5):** JWT revocation and single-use refresh remain architectural work.
+- **Execution (#6):** optional commands/hooks still require an external OS sandbox.
+  Argument parsing does not provide process, memory, network, or filesystem isolation.
+- **Paths (#7):** scoped filesystem and recursive authorization tests exist. A local
+  process racing path-component replacement can still present a TOCTOU risk.
+  Prevent untrusted external writers; keep `followExternalSymlinks=false`.
+- **Uploads (#8):** complete configurable budgets and interrupted-upload scenarios.
+- **Shares (#9):** complete short-lived authorization sessions and revocation.
+- **CI/scanning (#10–#13):** preserve check names and pinning, verify enforcement on
+  GitHub, extend authenticated DAST, and finish release artifact signing/scanning.
+- **Docs/backlog (#14–#15):** keep claims tied to shipped versions and reproduce
+  inherited reports against the current fork before declaring them fixed.
 
-Exit criteria: PR #18 passes repository tests, build, lint, and all configured
-CodeQL analyses; the protected branch rules remain enabled.
+## Scanner enforcement
 
-### 2. Verify path confinement findings
+PR OSV comparison blocks new findings. The first-batch change selects the exact
+PR/merge-group base commit and requires structurally valid JSON reports before
+comparison, so a failed checkout or missing/malformed report cannot silently
+become a baseline. A valid report still requires review for scanner coverage.
+Full scans retain JSON/SARIF and remain nonblocking for vulnerability findings;
+the existing imaging finding is not newly suppressed by this change.
 
-The 30 path alerts cross API handlers and filesystem helpers that are intended
-to be confined by `ScopedFs` and `BasePathFs`. PR #18 adds API-level tests for
-reads, writes, creates, updates, deletes, subtitles, and escaping symlinks, plus
-filesystem and settings traversal cases.
+Promote the full scan only after removing the finding or implementing an explicitly
+reviewed, expiring exception gate that preserves the full inventory. GitHub branch
+protection currently requires CI and CodeQL checks; dependency/OSV enforcement
+must also be verified before claiming a required release gate. #17 remains open
+until that evidence and gate are complete.
 
-After merge, review every surviving alert against the tested confinement
-boundary. Fix any demonstrated escape. Dismiss an alert only when all of the
-following are recorded in its CodeQL disposition:
+## Release criteria
 
-- the request is confined before the reported filesystem operation;
-- an automated test covers the reported operation and an out-of-scope path;
-- symlink behavior is covered where applicable; and
-- the alert is a modeling limitation rather than a reachable vulnerability.
-
-The `followExternalSymlinks` option deliberately relaxes confinement and must
-remain disabled by default, explicitly documented as unsafe, and excluded from
-claims of tenant isolation.
-
-Exit criteria: every path alert is either fixed or individually dispositioned
-with test evidence; no bulk dismissal is permitted.
-
-### 3. Address non-CodeQL security debt
-
-- Triage the known upstream advisory classes tracked in issue #2.
-- Keep secret scanning and Dependabot alerts at zero.
-- Add dependency review and broader supply-chain checks where they do not
-  duplicate existing controls.
-- Decide which deployment configurations this fork will support and publish a
-  hardened configuration baseline.
-
-Exit criteria: each known advisory class has an owner, severity, remediation or
-documented mitigation, regression coverage, and a target release.
-
-### 4. Release a patched build
-
-- Re-run race tests, lint, type checking, production builds, CodeQL, dependency
-  review, and secret scanning on the release candidate.
-- Review security-relevant configuration defaults and upgrade notes.
-- Publish a changelog that describes behavior changes without including
-  exploitation instructions.
-- Update `SECURITY.md` only after a patched artifact is available.
-
-Exit criteria: all required checks pass on the protected default branch, no
-critical or high alert remains without an accepted disposition, and the release
-artifact is reproducible from the tagged commit.
-
-## Operating rules
-
-- Do not dismiss an alert to make a check pass.
-- Do not weaken branch protection or SHA-pinning as a permanent workaround.
-- Add a regression test for every confirmed vulnerability.
-- Record residual risk and compatibility impact in the pull request that accepts
-  it.
-- Re-scan the default branch after each security merge and update this document
-  when counts or priorities change.
-
-## Pre-merge residual risk
-
-- Command execution, event hooks, and hook authentication remain optional
-  privileged features. They are disabled by default and require trusted
-  executables plus an external operating-system sandbox when enabled.
-- The scoped filesystem performs a resolved-target check immediately before
-  each operation. A process that can concurrently replace path components may
-  still present a time-of-check/time-of-use race; deployments must prevent
-  untrusted local processes from mutating the served tree outside the API.
-- `github.com/disintegration/imaging` has an unfixed low-severity crafted-TIFF
-  crash advisory. TIFF inputs are decoded without a preliminary imaging
-  transform and malformed palette indexes are rejected before resizing, which
-  blocks the published panic condition while retaining valid TIFF support.
-- `golang.org/x/crypto/openpgp` is reported as unmaintained, but this application
-  reaches `x/crypto` through `bcrypt`, not `openpgp`. The module-level scanner
-  result remains documented until the dependency no longer contains that
-  package or the scanner supports package reachability.
-
-## Scanner disposition record
-
-The 2026-08-04 default-branch review applied the following dispositions. Mike
-D. (`cryptnetworks`) owns each disposition; issue #2 tracks filesystem and
-CodeQL evidence, and issue #17 tracks dependency findings. Re-review is due by
-2026-11-02 or sooner if the relevant code, dependency, or trust boundary
-changes.
-
-- Request-derived filesystem paths are authorized against user rules and are
-  executed through `files.ScopedFs`, which resolves symbolic links immediately
-  before every operation and rejects targets outside the configured scope.
-  Traversal and escaping-symlink regression tests cover reads, writes, moves,
-  deletes, archives, subtitles, TUS uploads, and command working directories.
-  CodeQL does not model this `afero.Fs` implementation, so remaining instances
-  of `go/path-injection` on those flows are evidence-backed false positives.
-- User-home creation was the exception: it used a lexical `BasePathFs`. It now
-  uses `ScopedFs` and has a regression test proving that a symlinked scope
-  cannot create a directory outside the server root.
-- Authentication backend details are no longer serialized to console output;
-  the output is always a fixed redaction marker. This removes the
-  `go/clear-text-logging` flow and fails closed if new backend fields are added.
-- The imaging advisory has no upstream patched release. The published malformed
-  TIFF palette condition is rejected before any imaging transform. The residual
-  dependency finding is accepted as mitigated low risk pending an upstream fix
-  or library replacement.
-- The `x/crypto/openpgp` advisory is not reachable: the application imports only
-  `x/crypto/bcrypt`, and `govulncheck` reports no affected symbol or imported
-  package. Reassess if an OpenPGP import is introduced.
+Use the [operations runbook](operations.md#release). Require unit/integration/race
+tests, frontend lint/tests/type checking, production builds, current CodeQL and
+dependency evidence, and relevant DAST. Critical/high findings need remediation
+or an explicit, time-limited disposition. Publish affected and patched versions
+only when a verified artifact exists. Never dismiss alerts or weaken protection
+merely to make a check pass.

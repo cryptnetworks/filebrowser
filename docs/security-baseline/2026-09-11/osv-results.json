@@ -1,0 +1,102 @@
+{
+  "results": [
+    {
+      "source": {
+        "path": "/github/workspace/go.mod",
+        "type": "lockfile"
+      },
+      "packages": [
+        {
+          "package": {
+            "name": "github.com/disintegration/imaging",
+            "version": "1.6.2",
+            "ecosystem": "Go"
+          },
+          "groups": [
+            {
+              "ids": [
+                "GHSA-q7pp-wcgr-pffx"
+              ],
+              "aliases": [
+                "CVE-2023-36308",
+                "GHSA-q7pp-wcgr-pffx"
+              ],
+              "max_severity": ""
+            }
+          ],
+          "vulnerabilities": [
+            {
+              "affected": [
+                {
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2023/09/GHSA-q7pp-wcgr-pffx/GHSA-q7pp-wcgr-pffx.json"
+                  },
+                  "package": {
+                    "ecosystem": "Go",
+                    "name": "github.com/disintegration/imaging",
+                    "purl": "pkg:golang/github.com/disintegration/imaging"
+                  },
+                  "ranges": [
+                    {
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "last_affected": "1.6.2"
+                        }
+                      ],
+                      "type": "SEMVER"
+                    }
+                  ]
+                }
+              ],
+              "aliases": [
+                "CVE-2023-36308"
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-129"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2024-03-21T18:57:46Z",
+                "nvd_published_at": "2023-09-05T04:15:08Z",
+                "severity": "LOW"
+              },
+              "details": "Disintegration Imaging 1.6.2 allows attackers to cause a panic (because of an integer index out of range during a Grayscale call) via a crafted TIFF file to the scan function of scanner.go. NOTE: it is unclear whether there are common use cases in which this panic could have any security consequence",
+              "id": "GHSA-q7pp-wcgr-pffx",
+              "modified": "2026-09-10T03:50:03.258237845Z",
+              "published": "2023-09-05T06:30:14Z",
+              "references": [
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2023-36308"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/disintegration/imaging/issues/165"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/disintegration/imaging/releases/tag/v1.6.2"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "github.com/disintegration/imaging"
+                }
+              ],
+              "schema_version": "1.9.0",
+              "summary": "Crash when processing crafted TIFF files"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "experimental_config": {
+    "licenses": {
+      "summary": false,
+      "allowlist": null
+    }
+  }
+}
