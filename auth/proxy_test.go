@@ -76,7 +76,7 @@ func TestProxyAuthCreateUserRestrictsDefaults(t *testing.T) {
 		},
 	}
 
-	auth := ProxyAuth{Header: "X-Remote-User", TrustedCIDRs: []string{"127.0.0.1/32"}}
+	auth := ProxyAuth{Header: "X-Remote-User", TrustedCIDRs: []string{"127.0.0.1/32"}, AutoProvision: true}
 	req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
 	req.Header.Set("X-Remote-User", "newproxyuser")
 	req.RemoteAddr = "127.0.0.1:12345"
@@ -158,7 +158,7 @@ func TestProxyAuthCreateUserDirIsolatesScope(t *testing.T) {
 		},
 	}
 
-	auth := ProxyAuth{Header: "X-Remote-User", TrustedCIDRs: []string{"127.0.0.1/32"}}
+	auth := ProxyAuth{Header: "X-Remote-User", TrustedCIDRs: []string{"127.0.0.1/32"}, AutoProvision: true}
 	provision := func(name string) *users.User {
 		req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
 		req.Header.Set("X-Remote-User", name)
@@ -181,5 +181,80 @@ func TestProxyAuthCreateUserDirIsolatesScope(t *testing.T) {
 	}
 	if alice.Scope != "/users/alice" {
 		t.Errorf("expected /users/alice, got %q", alice.Scope)
+	}
+}
+
+func TestProxyProvisioningPolicy(t *testing.T) {
+	for _, signup := range []bool{false, true} {
+		for _, provision := range []bool{false, true} {
+			store := &mockUserStore{users: map[string]*users.User{"existing": {Username: "existing"}}}
+			srv := &settings.Server{Root: t.TempDir()}
+			set := &settings.Settings{Signup: signup}
+			a := ProxyAuth{Header: "X-Remote-User", TrustedCIDRs: []string{"127.0.0.1/32"}, AutoProvision: provision}
+			for _, username := range []string{"existing", "new"} {
+				req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
+				req.RemoteAddr = "127.0.0.1:1234"
+				req.Header.Set(a.Header, username)
+				_, err := a.Auth(req, store, set, srv)
+				if username == "new" && !provision {
+					if !os.IsPermission(err) || len(store.users) != 1 {
+						t.Fatalf("signup=%t: disabled provisioning: err=%v users=%v", signup, err, store.users)
+					}
+					entries, readErr := os.ReadDir(srv.Root)
+					if readErr != nil || len(entries) != 0 {
+						t.Fatalf("denied provisioning modified root: %v, %v", entries, readErr)
+					}
+				} else if err != nil {
+					t.Fatalf("signup=%t provision=%t user=%s: %v", signup, provision, username, err)
+				}
+			}
+		}
+	}
+}
+
+func TestProxyIdentityVariants(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		header http.Header
+		want   string
+	}{
+		{"canonical", http.Header{"X-Remote-User": {"alice"}}, "alice"},
+		{"lowercase", http.Header{"x-remote-user": {" alice "}}, "alice"},
+		{"case collision", http.Header{"X-Remote-User": {"alice"}, "x-remote-user": {"bob"}}, ""},
+		{"merged values", http.Header{"X-Remote-User": {"alice, bob"}}, ""},
+		{"same value repeated", http.Header{"X-Remote-User": {"alice", "alice"}}, ""},
+		{"empty", http.Header{"X-Remote-User": {" "}}, ""},
+		{"missing", http.Header{}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := ProxyAuth{Header: "X-Remote-User"}
+			got, ok := a.Username(&http.Request{Header: tc.header})
+			if got != tc.want || ok != (tc.want != "") {
+				t.Fatalf("Username() = %q, %t; want %q", got, ok, tc.want)
+			}
+		})
+	}
+}
+
+func TestProxyTrustBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name, remote string
+		cidrs        []string
+		want         bool
+	}{
+		{"default deny", "127.0.0.1:1234", nil, false},
+		{"invalid network", "127.0.0.1:1234", []string{"invalid"}, false},
+		{"IPv4", "192.0.2.5:1234", []string{"192.0.2.0/24"}, true},
+		{"IPv6", "[2001:db8::1]:1234", []string{"2001:db8::/32"}, true},
+		{"outside network", "192.0.3.5:1234", []string{"192.0.2.0/24"}, false},
+		{"malformed peer", "unknown:1234", []string{"0.0.0.0/0"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := ProxyAuth{TrustedCIDRs: tc.cidrs}
+			r := &http.Request{RemoteAddr: tc.remote, Header: http.Header{"X-Forwarded-For": {"192.0.2.5"}, "Forwarded": {"for=192.0.2.5"}}}
+			if got := a.TrustedRequest(r); got != tc.want {
+				t.Fatalf("TrustedRequest() = %t, want %t", got, tc.want)
+			}
+		})
 	}
 }

@@ -221,3 +221,32 @@ func TestMarshalUsesOwnerOnlyPermissions(t *testing.T) {
 		t.Fatalf("got permissions %O, want 0600", got)
 	}
 }
+
+func TestProxyProvisioningConfig(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		stored map[string]interface{}
+		args   []string
+		want   bool
+	}{
+		{"legacy defaults disabled", map[string]interface{}{"header": "X-Remote-User"}, nil, false},
+		{"retain enabled", map[string]interface{}{"header": "X-Remote-User", "autoProvision": true}, nil, true},
+		{"explicit enable", nil, []string{"--auth.header=X-Remote-User", "--auth.autoProvision=true"}, true},
+		{"explicit disable", map[string]interface{}{"header": "X-Remote-User", "autoProvision": true}, []string{"--auth.autoProvision=false"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+			addConfigFlags(flags)
+			if err := flags.Parse(tc.args); err != nil {
+				t.Fatal(err)
+			}
+			a, err := getProxyAuth(flags, tc.stored)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := a.(*auth.ProxyAuth).AutoProvision; got != tc.want {
+				t.Fatalf("AutoProvision = %t, want %t", got, tc.want)
+			}
+		})
+	}
+}

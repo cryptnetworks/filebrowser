@@ -165,3 +165,110 @@ We also provide a no authentication mechanism for users that want to use File Br
 ```sh
 filebrowser config set --auth.method=noauth
 ```
+
+## Proxy provisioning and migration
+
+Proxy authentication trusts only the immediate TCP peer (`RemoteAddr`), never
+`Forwarded` or `X-Forwarded-For`. Trust only the final identity-setting proxy.
+With multiple proxies, that final proxy must authenticate the request or receive
+identity over a separately authenticated private hop. Do not allow an outer
+proxy's arbitrary client header through unchanged.
+
+Existing File Browser accounts can log in through a trusted proxy. Unknown
+accounts are denied by default, independently of `signup`. To opt into account
+creation, configure isolated homes and permissions first, then run:
+
+```sh
+filebrowser config set --createUserDir=true --auth.autoProvision=true
+```
+
+Disable it with `filebrowser config set --auth.autoProvision=false`. Old exports
+without `autoProvision` import as false. Existing accounts and scopes are not
+rewritten. The proxy must supply one nonempty username; duplicate header values,
+case-variant duplicates, and comma-joined identity lists are rejected. Leading
+and trailing whitespace is removed once; username case is preserved.
+
+### Reverse proxy examples
+
+These are configuration fragments for an HTTPS virtual host with operator-owned
+credentials. Bind File Browser to `127.0.0.1:8080` on the same host and trust
+`127.0.0.1/32`; for containers use an isolated private network and the actual
+proxy source address. Never expose the backend port publicly. Replace example
+hostnames, paths, and password hashes before deployment. Authenticate every
+route, including API and share routes; these examples intentionally require
+proxy authentication even for public shares.
+
+Nginx, inside the TLS server block:
+
+```nginx
+location / {
+    auth_basic "File Browser";
+    auth_basic_user_file /etc/nginx/filebrowser.htpasswd;
+    proxy_set_header X-Remote-User $remote_user;
+    proxy_set_header Authorization "";
+    proxy_set_header Host $host;
+    proxy_pass http://127.0.0.1:8080;
+}
+```
+
+The identity comes from successful Basic authentication and replaces the client
+header. See [Nginx authentication](https://nginx.org/en/docs/http/ngx_http_auth_basic_module.html).
+Configure File Browser's `auth.header` as `X-Remote-User` for these examples.
+
+Caddy, with an operator-generated password hash:
+
+```caddyfile
+files.example.com {
+    basic_auth {
+        alice REPLACE_WITH_PASSWORD_HASH
+    }
+    reverse_proxy 127.0.0.1:8080 {
+        header_up X-Remote-User {http.auth.user.id}
+        header_up -Authorization
+    }
+}
+```
+
+Use `caddy hash-password` to produce the hash. See
+[Caddy authentication](https://caddyserver.com/docs/caddyfile/directives/basic_auth)
+and [upstream headers](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#headers).
+
+Traefik dynamic configuration, with a preconfigured `websecure` entry point and
+TLS certificate configuration:
+
+```yaml
+http:
+  routers:
+    filebrowser:
+      rule: Host(`files.example.com`)
+      entryPoints: [websecure]
+      tls: {}
+      middlewares: [strip-identity, filebrowser-auth]
+      service: filebrowser
+  middlewares:
+    strip-identity:
+      headers:
+        customRequestHeaders:
+          X-Remote-User: ""
+    filebrowser-auth:
+      basicAuth:
+        usersFile: /etc/traefik/filebrowser.htpasswd
+        headerField: X-Remote-User
+        removeHeader: true
+  services:
+    filebrowser:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:8080
+```
+
+Keep the header name canonical and use a patched Traefik release. Consult
+[Traefik BasicAuth](https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/basicauth/)
+and its [security advisories](https://github.com/traefik/traefik/security/advisories).
+
+Before exposing the proxy, verify that no credentials, a forged identity header,
+and duplicated identity headers cannot authenticate as another user. Check that
+valid proxy credentials map to the intended existing File Browser account and
+that unknown users fail with provisioning disabled. Run the proxy's configuration
+validator (`nginx -t` or `caddy validate`) before reloading; test Traefik startup
+and middleware ordering in an isolated deployment.

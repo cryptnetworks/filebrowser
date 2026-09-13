@@ -2,6 +2,9 @@
 
 This fork is being brought under active maintenance after the upstream project announced its wind-down. Current builds must still be treated as security-hardening work in progress. Do not expose them directly to the public internet without a trusted TLS-terminating authentication proxy.
 
+Owner: `cryptnetworks`; review monthly and after security merges. See the
+[backup, incident, release, and scanner runbooks](operations.md).
+
 The master security tracker is [issue #2](https://github.com/cryptnetworks/filebrowser/issues/2). Implementation issues #3 through #15 and #17 split the critical vulnerabilities, scanning, documentation, inherited dependency findings, and functional backlog into reviewable work.
 
 ## Immediate deployment controls

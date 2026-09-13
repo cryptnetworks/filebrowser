@@ -4,7 +4,7 @@
 
 > [!WARNING]
 >
-> **File Browser is archived on 2026-09-01.** There will be no further releases and no security fixes. Existing releases and Docker images stay online. For the known unaddressed security issues and hardening guidance, read the [README](../README.md#security).
+> **This fork is under active security maintenance.** Upstream is archived; fork hardening is in progress and a security-ready release is not yet established. For the known unaddressed security issues and hardening guidance, read the [README](../README.md#security).
 
 File Browser provides a file managing interface within a specified directory and it can be used to upload, delete, preview and edit your files. It is a **create-your-own-cloud**-kind of software where you can just install it on your server, direct it to a path and access your files through a nice web interface.
 
@@ -17,6 +17,8 @@ File Browser provides a file managing interface within a specified directory and
 - [Authentication](authentication.md)
 - [Command Execution](command-execution.md)
 - [Deployment](deployment.md)
+- [Operations and release runbooks](operations.md)
+- [Security maintenance](security-maintenance.md)
 - [Troubleshooting](troubleshooting.md)
 - [Command Line Usage](cli/filebrowser.md)
 

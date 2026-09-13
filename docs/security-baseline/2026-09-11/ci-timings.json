@@ -1,0 +1,36 @@
+{
+  "metric": "run updated_at minus run_started_at (includes orchestration overhead)",
+  "runs": [
+    {
+      "run_id": 34649423842,
+      "event": "push",
+      "head_sha": "1e232ed201a2287cdc9d183274354ad7b05d53d1",
+      "elapsed_seconds": 97.0
+    },
+    {
+      "run_id": 34649234762,
+      "event": "push",
+      "head_sha": "bd13965fa927e6d81336978d5c68041f6e465239",
+      "elapsed_seconds": 108.0
+    },
+    {
+      "run_id": 34646662897,
+      "event": "push",
+      "head_sha": "34218364b3d88fd70a82ee427d27e83d94feabc1",
+      "elapsed_seconds": 99.0
+    },
+    {
+      "run_id": 34645715726,
+      "event": "push",
+      "head_sha": "938d092ed05fd3f9f0350c54b7919ccad540f39f",
+      "elapsed_seconds": 87.0
+    },
+    {
+      "run_id": 34645415232,
+      "event": "push",
+      "head_sha": "af8c6328ed472adc8aac3c5322213014f5cab061",
+      "elapsed_seconds": 124.0
+    }
+  ],
+  "median_seconds": 99.0
+}

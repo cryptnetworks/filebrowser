@@ -45,6 +45,7 @@ func addConfigFlags(flags *pflag.FlagSet) {
 	flags.String("auth.method", string(auth.MethodJSONAuth), "authentication type")
 	flags.String("auth.header", "", "HTTP header for auth.method=proxy")
 	flags.StringSlice("auth.trustedCIDRs", nil, "trusted proxy CIDRs for auth.method=proxy")
+	flags.Bool("auth.autoProvision", false, "allow trusted proxies to provision unknown users independently of signup")
 	flags.String("auth.command", "", "command for auth.method=hook")
 	flags.String("auth.logoutPage", "", "url of custom logout page")
 
@@ -116,7 +117,15 @@ func getProxyAuth(flags *pflag.FlagSet, defaultAuther map[string]interface{}) (a
 		trustedCIDRs = stringsFromDefaultAuther(defaultAuther["trustedCidrs"])
 	}
 
-	return &auth.ProxyAuth{Header: header, TrustedCIDRs: trustedCIDRs}, nil
+	autoProvision, err := flags.GetBool("auth.autoProvision")
+	if err != nil {
+		return nil, err
+	}
+	if !flags.Changed("auth.autoProvision") && defaultAuther != nil {
+		autoProvision, _ = defaultAuther["autoProvision"].(bool)
+	}
+
+	return &auth.ProxyAuth{Header: header, TrustedCIDRs: trustedCIDRs, AutoProvision: autoProvision}, nil
 }
 
 func stringsFromDefaultAuther(value interface{}) []string {
